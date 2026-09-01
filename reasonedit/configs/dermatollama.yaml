@@ -1,0 +1,20 @@
+name: "meta-llama/Llama-3.2-11B-Vision-Instruct"   # base; adapter merged at load
+adapter: "DermaVLM/DermatoLLama-full"
+class_name: VQAModel
+pt: null
+# Layer names VERIFIED against the live Mllama tree (transformers 4.57.1). The
+# live model is a PeftModel (LoRA NOT merged), so every param is prefixed with
+# 'base_model.model.'; we give the prefix-free suffix and the resolver
+# (validate_and_correct_param_name -> suffix match) maps it to the exact param.
+#   vision : model.vision_model.transformer.layers.{0..31}.mlp.fc1/fc2   (NOT LoRA-targeted)
+#   language: model.language_model.layers.{0..39}.mlp.{gate,up,down}_proj (many are LoRA-targeted)
+# dual_sbert only uses inner_params_vision (vision layers are plain Linears).
+inner_params: ["model.language_model.layers.30.mlp.gate_proj.weight"]
+inner_params_vision: ["model.vision_model.transformer.layers.28.mlp.fc1.weight"]
+inner_params_lang: ["model.language_model.layers.20.mlp.gate_proj.weight"]
+lang_scaler_sbert: 1        # per guidance: unit-scale SBERT concat in dual_sbert
+cap_keys: 1                  # top-1 retrieval: prepend only the single nearest human-corrected answer
+image_size: null            # let the Mllama processor handle resizing
+processor_class: null
+tokenizer_class: null
+temperature: 0.0

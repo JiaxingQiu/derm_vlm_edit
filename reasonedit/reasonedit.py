@@ -2,7 +2,7 @@
 
 Default behavior matches rankedit's answer-only multimodal IKE:
   one key per edit  = dual_sbert(<image, question>)
-  value             = "New Fact: The answer to 'Q' is <answer>."
+  value             = fact_template (default: "New Fact: The answer to 'Q' is <answer>.")
   retrieve          = top-1 nearest key, prepended to the prompt
   merge/hubness     = off; n_radius_samples = 0
 
@@ -89,6 +89,10 @@ class ReasonEdit(nn.Module):
         self.top_k_patches = int(getattr(cfg, "top_k_patches", 1))  # top k nll patches per sentence (Route 2)
         self.pair_rationale_w = getattr(cfg, "pair_rationale_w", "orig")  # "orig", "patch", "both"
         self.key_type = getattr(cfg, "key_type", "answer")  # "all", "rationale", "answer" — default answer-only IKE
+        self.fact_template = getattr(
+            cfg, "fact_template",
+            "New Fact: The answer to '{question}' is {answer}.",
+        )
         # --- legacy params (not used) only for viz ---
         self.aug_as_keys = getattr(cfg, "aug_as_keys", False)  # add augmented patch keys
         self.aug_orig_as_keys = getattr(cfg, "aug_orig_as_keys", False)  # add augmented original image keys
@@ -424,7 +428,10 @@ class ReasonEdit(nn.Module):
     @torch.no_grad()
     def _add_edit(self, img, question: str, answer: str, rationale_sents: List[str], uid=None):
         """Add keys for one edit."""
-        answer_value = f"New Fact: The answer to '{question}' is {answer}." if answer else ""
+        answer_value = (
+            self.fact_template.format(question=question, answer=answer)
+            if answer else ""
+        )
         rationale_value = " ".join(rationale_sents)
         
         new_entries, new_imgs, new_texts, new_is_question = [], [], [], []

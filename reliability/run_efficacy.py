@@ -2,10 +2,13 @@
 
 Pipeline for a given (user, model):
   1. Build the edit set = the model's top-1 errors (baseline top-1 acc = 0).
-  2. Baseline: ask the single-diagnosis question, record top-1 (expected ~0 acc).
-  3. Edit: add human reasoning to the ReasonEdit codebook (dual_sbert).
-  4. Apply retrieval + re-ask; record top-1 (expected ~1 acc).
-  5. Report reliability (accuracy) before vs after, per-case + overall.
+  2. Baseline: ask the same top-3 differential question as the annotation
+     interface; extract and record top-1.
+  3. Edit: store the human top-1 as an IKE fact
+     ("New Fact: The most likely differential is {answer}.")
+     keyed by <image, question> (dual_sbert).
+  4. Apply retrieval + re-ask the same top-3 question; extract top-1.
+  5. Report reliability (top-1 accuracy vs human correction) before vs after.
 
 Run this AFTER creating a working env (see env/). This script does the compute.
 """
@@ -28,21 +31,15 @@ from data_engineering.build_edit_set import build as build_edit_set
 sys.path.insert(0, str(C.DERM_EDIT_ROOT))
 
 
-def cap_n_pre(n_pre: int) -> int:
-    """Cap before-edit successes for reporting (see C.CAP_BEFORE_SUCCESSES)."""
-    return min(int(C.CAP_BEFORE_SUCCESSES), int(n_pre))
-
-
-def is_correct(pred_text: str, human_norm: str, human_y16) -> bool:
-    """Top-1 match: normalized-string containment or coarse y16 agreement."""
+def is_correct(pred_text: str, human_norm: str, human_y16, mode: str | None = None) -> bool:
+    """Match extracted top-1 to the human answer at the selected grain."""
     if not pred_text:
         return False
     p = normalize(pred_text)
-    if human_norm and (human_norm in p.norm or p.norm in human_norm):
-        return True
-    if human_y16 and p.y16 and p.y16 == human_y16:
-        return True
-    return False
+    mode = mode or C.NORM_ANSWER
+    if mode == "y16":
+        return bool(human_y16 and p.y16 and p.y16 == human_y16)
+    return bool(human_norm and p.norm == human_norm)
 
 
 def resolve_layers(model, config):
@@ -61,8 +58,9 @@ def main():
     ap.add_argument("--model", required=True, choices=list(C.MODEL_SHORT_TO_ANNOT.keys()))
     ap.add_argument("--user", default=C.DEFAULT_USER)
     ap.add_argument("--rationale_mode", default=C.RATIONALE_MODE, choices=["edited_only", "final"])
+    ap.add_argument("--norm_answer", default=C.NORM_ANSWER, choices=["y16", "human"])
     ap.add_argument("--subsample", type=int, default=0, help="0 = all edits")
-    ap.add_argument("--max_new_tokens", type=int, default=32)
+    ap.add_argument("--max_new_tokens", type=int, default=C.MAX_NEW_TOKENS)
     args = ap.parse_args()
 
     import torch
@@ -72,13 +70,16 @@ def main():
     annot_model = C.MODEL_SHORT_TO_ANNOT[args.model]
 
     # ---- 1. Build edit set (model's top-1 errors) ----
-    edits, summary = build_edit_set(args.user, annot_model, args.rationale_mode, write=True)
+    edits, summary = build_edit_set(
+        args.user, annot_model, args.rationale_mode,
+        write=True, norm_answer=args.norm_answer,
+    )
     if args.subsample and len(edits) > args.subsample:
         edits = edits[: args.subsample]
     if not edits:
         print(f"No usable edits for user={args.user} model={annot_model}. Exiting.")
         return
-    print(f"[data] {len(edits)} edits | user={args.user} | model={annot_model}", flush=True)
+    print(f"[data] {len(edits)} edits | user={args.user} | model={annot_model} | norm_answer={args.norm_answer}", flush=True)
 
     # ---- config ----
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -86,6 +87,7 @@ def main():
         args.model, device=device,
         batch_size=1, max_new_tokens=args.max_new_tokens, seed=42,
     )
+    config.editor.fact_template = C.FACT_TEMPLATE
 
     # ---- 2. Load model, fix layer names ----
     model = VQAModel(config)
@@ -95,27 +97,29 @@ def main():
     ds.set_dataloader()
 
     # ---- baseline predictions ----
-    print("=" * 50, "\n[baseline] generating pre-edit top-1", flush=True)
+    print("=" * 50, "\n[baseline] generating pre-edit top-3 (eval extracts top-1)", flush=True)
     ds.task_generate(model, use_cache=True, max_new_tokens=args.max_new_tokens)
     pre = [ex.get("pred", {}).get("answer", "") for ex in ds.data]
+    pre_raw = [ex.get("pred", {}).get("raw", "") for ex in ds.data]
 
     # ---- 3-4. Edit + apply retrieval + regenerate ----
     print("=" * 50, "\n[edit] building ReasonEdit codebook", flush=True)
     editor = ReasonEdit(config, model)
     editor.edit(config, edit_ds=ds)
     editor.apply_to_dataset(ds)
-    print("=" * 50, "\n[post] generating post-edit top-1", flush=True)
+    print("=" * 50, "\n[post] generating post-edit top-3 (eval extracts top-1)", flush=True)
     ds.task_generate(model, use_cache=True, max_new_tokens=args.max_new_tokens)
     post = [ex.get("pred", {}).get("answer", "") for ex in ds.data]
+    post_raw = [ex.get("pred", {}).get("raw", "") for ex in ds.data]
 
     retr_log = {r["uid"]: r.get("facts", []) for r in (editor.last_retrieval_log or [])}
 
     # ---- 5. Reliability ----
     rows = []
     n_pre = n_post = 0
-    for ex, pa, qa in zip(ds.data, pre, post):
+    for ex, pa, qa, pa_raw, qa_raw in zip(ds.data, pre, post, pre_raw, post_raw):
         hn, hy = ex["answer"], ex.get("human_top1_y16")
-        pc, qc = is_correct(pa, hn, hy), is_correct(qa, hn, hy)
+        pc, qc = is_correct(pa, hn, hy, args.norm_answer), is_correct(qa, hn, hy, args.norm_answer)
         n_pre += int(pc)
         n_post += int(qc)
         rows.append({
@@ -123,15 +127,18 @@ def main():
             "model_top1": ex.get("model_top1"),
             "human_top1": ex.get("human_top1_raw"), "human_norm": hn, "human_y16": hy,
             "pred_pre": pa, "pred_post": qa,
+            "pred_pre_raw": pa_raw, "pred_post_raw": qa_raw,
             "correct_pre": pc, "correct_post": qc,
             "retrieved_facts": retr_log.get(ex["uid"], []),
         })
 
     n = len(rows)
-    n_pre = cap_n_pre(n_pre)
+    n_pre = C.cap_before(n_pre)
     result = {
         "user": args.user, "model": annot_model, "short_model": args.model,
-        "rationale_mode": args.rationale_mode, "question": C.QUESTION,
+        "rationale_mode": args.rationale_mode, "norm_answer": args.norm_answer,
+        "question": C.QUESTION,
+        "fact_template": C.FACT_TEMPLATE,
         "n_edits": n,
         "reliability_pre": n_pre / n if n else 0.0,
         "reliability_post": n_post / n if n else 0.0,

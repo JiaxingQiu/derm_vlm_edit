@@ -34,11 +34,6 @@ REPORT_USERS = [
     "lhunterellul",
 ]
 
-# Display cap on before-edit successes (per user x VLM). Same constant as
-# run_efficacy / the notebook so regenerating the table always caps.
-CAP_BEFORE_SUCCESSES = C.CAP_BEFORE_SUCCESSES
-
-
 def _short_user(user: str) -> str:
     """Compact display label for a user id/email."""
     return user.split("@")[0]
@@ -55,17 +50,10 @@ def load_results(results_dir: Path):
 
 
 def _cell_counts(r):
-    """Return (N, n_before, n_after) from a result dict.
-
-    Before-edit successes are capped at CAP_BEFORE_SUCCESSES. The edit set is
-    the model's recorded top-1 errors, so live re-generation matching the human
-    answer is a decoding-parity artifact, not a real baseline — capping keeps
-    the table from looking like a non-zero pre-edit accuracy.
-    """
+    """Return (N, n_before, n_after) from a result dict."""
     n = int(r.get("n_edits", 0))
-    nb = int(r.get("n_correct_pre", 0))
+    nb = C.cap_before(int(r.get("n_correct_pre", 0)))
     na = int(r.get("n_correct_after", r.get("n_correct_post", 0)))
-    nb = min(CAP_BEFORE_SUCCESSES, nb)
     return n, nb, na
 
 

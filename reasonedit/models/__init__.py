@@ -64,19 +64,18 @@ def get_preprocess(config):
 
 
 def clean_answer(o, i):
+    """Strip chat wrappers; keep newlines/colons so numbered differentials stay parseable."""
     s = o or ""
-    if "ASSISTANT:" in s:
-        s = s.split("ASSISTANT:")[-1].strip()
-    elif "assistant" in s:
-        s = s.split("assistant")[-1].replace("\n", "").replace(":", "").strip()
-    elif "Answer:" in s:
-        s = s.split("Answer:")[-1].strip()
-    elif "ANSWER:" in s:
-        s = s.split("ANSWER:")[-1].strip()
-    elif "answer:" in s:
-        s = s.split("answer:")[-1].strip()
+    for marker in ("ASSISTANT:", "<start_of_turn>model"):
+        if marker in s:
+            s = s.split(marker)[-1].strip()
+            break
     else:
-        s = s.replace(i, "").strip()
+        if "assistant" in s:
+            s = s.split("assistant")[-1]
+            s = s.lstrip(" :\n\t<|>").strip()
+        elif i and i in s:
+            s = s.replace(i, "").strip()
     return s
 
 

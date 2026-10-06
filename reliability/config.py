@@ -52,8 +52,23 @@ TARGET_MODELS = ("MedGemma", "DermatoLlama")
 DEFAULT_USER = "jesse.y.liu.md@gmail.com"
 DEFAULT_MODEL = "DermatoLlama"
 
-# Single-answer diagnosis question used for both editing and evaluation.
-QUESTION = "What is the single most likely diagnosis for this lesion?"
+# Same top-3 differential prompt as the annotation interface
+# (collect_ai_response/{medgemma,dermato_llama}/predict_reason.py).
+# Generation is top-3 + reasoning; eval still extracts and scores top-1 only.
+QUESTION = (
+    "You are an expert dermatologist. Please give the top 3 diagnoses in "
+    "your differential, and provide reasoning for each diagnosis, in format:\n"
+    "1. [Diagnosis]: [Reasoning]\n"
+    "2. [Diagnosis]: [Reasoning]\n"
+    "3. [Diagnosis]: [Reasoning]"
+)
+
+# ReasonEdit codebook value (answer-only IKE). Retrieval key is still
+# <image, QUESTION>; this is the sentence prepended at generate time.
+FACT_TEMPLATE = "New Fact: The top 1 most likely differential is {answer}."
+
+# Top-3 + reasoning needs a long decode; original collection used 512.
+MAX_NEW_TOKENS = 512
 
 # Only rows the annotator finished are considered.
 REQUIRE_MARKED_COMPLETE = True
@@ -66,12 +81,17 @@ REQUIRE_MARKED_COMPLETE = True
 #   "edited_only" -> only lines the human actually changed (edits_made == True)  [human ground truth]
 #   "final"       -> all non-empty `edited` lines (human obs + kept model text)
 RATIONALE_MODE = "edited_only"
+# How to decide membership + correctness.
+#   "y16"   -> edit set = y16(model) ≠ y16(human); score by y16 equality
+#   "human" -> edit set = normalized strings differ; score by exact canonical text
+NORM_ANSWER = "y16"
+CAP_BEFORE_SUCCESSES = None  # int = cap reported Before; None = use live n_correct_pre
 
-# Display/report cap on before-edit successes (per user x VLM). Live
-# re-generation can match the human answer even though the edit set is
-# recorded top-1 errors; we cap so Before does not look like a real baseline.
-CAP_BEFORE_SUCCESSES = 0
 
+def cap_before(n: int) -> int:
+    if CAP_BEFORE_SUCCESSES is None:
+        return int(n)
+    return min(int(CAP_BEFORE_SUCCESSES), int(n))
 
 def image_path_for(case_id: str) -> Path:
     """Resolve the image file for an annotation `case_id` (e.g. '1025_combined')."""

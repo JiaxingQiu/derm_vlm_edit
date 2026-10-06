@@ -29,6 +29,7 @@ from data_engineering.normalize_dx import normalize, to_dict  # noqa: E402
 def record_to_edit(rec: AnnotationRecord, rationale_mode: str) -> dict:
     """Convert one annotation record into a ReasonEdit-schema edit example."""
     nd = normalize(rec.human_top1_raw)
+    md = normalize(rec.model_top1)
     reasoning = reconstruct_reasoning(rec.reasoning_lines, mode=rationale_mode)
     safe_user = rec.login_id.replace("@", "_at_").replace(".", "_")
     uid = f"{safe_user}__{rec.model}__{rec.case_id}"
@@ -45,6 +46,8 @@ def record_to_edit(rec: AnnotationRecord, rationale_mode: str) -> dict:
         "model": rec.model,
         "case_id": rec.case_id,
         "model_top1": rec.model_top1,
+        "model_top1_norm": md.norm,
+        "model_top1_y16": md.y16,
         "human_top1_raw": rec.human_top1_raw,
         "human_top1_y16": nd.y16,
         "human_top1_is_multi": nd.is_multi,
@@ -55,11 +58,21 @@ def record_to_edit(rec: AnnotationRecord, rationale_mode: str) -> dict:
     }
 
 
+def _keep_for_mode(e: dict, norm_answer: str) -> bool:
+    """Keep the case if it is an error at this scoring grain."""
+    if norm_answer == "y16":
+        my, hy = e.get("model_top1_y16"), e.get("human_top1_y16")
+        return my is not None and hy is not None and my != hy
+    return bool(e.get("model_top1_norm") and e.get("answer")
+                and e["model_top1_norm"] != e["answer"])
+
+
 def build(
     user: str = C.DEFAULT_USER,
     model: str = C.DEFAULT_MODEL,
     rationale_mode: str = C.RATIONALE_MODE,
     write: bool = True,
+    norm_answer: str = C.NORM_ANSWER,
 ) -> tuple[list[dict], dict]:
     all_records = load_records(C.ANNOTATIONS_CSV)
     recs = filter_records(
@@ -70,14 +83,19 @@ def build(
         top1_errors_only=True,
         require_correction=True,
     )
-    edits = [record_to_edit(r, rationale_mode) for r in recs]
+    raw = [record_to_edit(r, rationale_mode) for r in recs]
+    edits = [e for e in raw if _keep_for_mode(e, norm_answer)]
 
     summary = {
         "user": user,
         "model": model,
         "rationale_mode": rationale_mode,
+        "norm_answer": norm_answer,
         "question": C.QUESTION,
+        "fact_template": C.FACT_TEMPLATE,
+        "n_marked_incorrect": len(raw),
         "n_edits": len(edits),
+        "n_dropped_same_grain": len(raw) - len(edits),
         "n_images_missing": sum(1 for e in edits if not e["image_exists"]),
         "n_multi_dx_top1": sum(1 for e in edits if e["human_top1_is_multi"]),
         "n_y16_unmapped": sum(1 for e in edits if e["human_top1_y16"] is None),
@@ -106,8 +124,9 @@ if __name__ == "__main__":
     ap.add_argument("--user", default=C.DEFAULT_USER)
     ap.add_argument("--model", default=C.DEFAULT_MODEL, choices=list(C.TARGET_MODELS))
     ap.add_argument("--rationale_mode", default=C.RATIONALE_MODE, choices=["final", "edited_only"])
+    ap.add_argument("--norm_answer", default=C.NORM_ANSWER, choices=["y16", "human"])
     args = ap.parse_args()
 
-    edits, summary = build(args.user, args.model, args.rationale_mode)
+    edits, summary = build(args.user, args.model, args.rationale_mode, norm_answer=args.norm_answer)
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     print(f"\nWrote {len(edits)} edits -> {C.edit_set_path(args.user, args.model)}")

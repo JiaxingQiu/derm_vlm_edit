@@ -1,7 +1,8 @@
 """Edit-set records -> ReasonEdit `ex` schema, plus generate loop.
 
-No VQADataset / taskengineer. Prompt matches the old QA engineer:
-"Answer the question in one word or phrase. {question}".
+Prompt is the interface question as-is (top-3 differential + reasoning).
+After generate, `pred.answer` is the extracted top-1 name; `pred.raw` is
+the full generation. Scoring uses top-1 only.
 """
 
 from __future__ import annotations
@@ -10,6 +11,8 @@ import json
 from typing import Dict, List
 
 from PIL import Image
+
+from data_engineering.extract_dx import extract_top1
 
 
 class DermEditDataset:
@@ -39,13 +42,13 @@ class DermEditDataset:
         for i, ex in enumerate(self.data):
             ex["idx"] = i
             ex["gold"] = {"label": str(ex["answer"]).lower().strip()}
-            prompt = f"Answer the question in one word or phrase. {ex['question']}".strip()
+            prompt = str(ex["question"]).strip()
             ex["prompt"] = prompt
             ex["prompt_orig"] = prompt
 
     def task_generate(self, model, use_cache=True, max_new_tokens=None):
         if max_new_tokens is None:
-            max_new_tokens = getattr(self.config, "max_new_tokens", 32)
+            max_new_tokens = getattr(self.config, "max_new_tokens", 512)
         try:
             core = getattr(getattr(model, "model", model), "model", getattr(model, "model", model))
             cfg = getattr(core, "config", None)
@@ -61,8 +64,13 @@ class DermEditDataset:
                 [img], [ex["prompt"]],
                 max_new_tokens=max_new_tokens, use_cache=use_cache,
             )
-            a = outs[0]
-            ex["pred"] = {"answer": a, "label_text": a.lower().strip()}
+            raw = outs[0]
+            top1 = extract_top1(raw)
+            ex["pred"] = {
+                "answer": top1,
+                "label_text": top1.lower().strip(),
+                "raw": raw,
+            }
 
 
 def load_edits(path) -> List[Dict]:

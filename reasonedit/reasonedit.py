@@ -8,6 +8,14 @@ Default behavior matches rankedit's answer-only multimodal IKE:
 
 The rationale/patch machinery is still in this file. Flip key_type to
 "all"/"rationale" and pair_rationale_w to "both" to turn it back on.
+
+Modes
+-----
+  "vision"           – VLM vision-layer activation only
+  "language"         – VLM language-layer activation only
+  "language_last"    – VLM last-layer activation only
+  "dual_sbert"       – VLM vision-layer ∥ SBERT text (original)
+  "standalone_dual"  – standalone image encoder ∥ SBERT text (no VLM hooks)
 """
 
 import re
@@ -66,10 +74,18 @@ class ReasonEdit(nn.Module):
         self.query_radius_method = getattr(cfg, "query_radius_method", "patch_spread")  # "patch_spread" or "augment"
         
         # Embedding Config
-        self.mode = getattr(cfg, "mode", "dual_sbert")              # "vision", "language", "language_last", "dual_sbert"
+        self.mode = getattr(cfg, "mode", "dual_sbert")              # "vision", "language", "language_last", "dual_sbert", "standalone_dual"
         self.pool_method = getattr(cfg, "pool_method", "mean")      # "mean" or "last"
         self.distance = getattr(cfg, "distance", "l2")              # "l2" or "cosine"
-        self.lang_scaler = float(getattr(config.model, "lang_scaler_sbert", 30.0))
+
+        # Standalone encoders (only used when mode="standalone_dual")
+        self._image_encoder_name = getattr(cfg, "image_encoder", "dinov2")
+        self._image_encoder_pool = getattr(cfg, "image_encoder_pool", "cls")
+        self._text_encoder_name = getattr(cfg, "text_encoder", "sbert")
+        self._scaler_dataset = getattr(cfg, "scaler_dataset", "coco")
+        self._image_encoder = None
+        self._text_encoder = None
+        self.lang_scaler = self._resolve_lang_scaler(config, cfg)
         
         # Radius Estimation
         self.radius_area_pct = float(getattr(cfg, "radius_area_pct", 0.9))  # mosaic area for augmentation
@@ -123,41 +139,41 @@ class ReasonEdit(nn.Module):
         dataset_name = getattr(getattr(config, "experiment", None), "dataset_name", None)
         self.augmenter = Augmenter(self.wrapper, seed=self.seed, mosaic_prob=1.0, dataset_name=dataset_name)
         
-        # VLM activation hooks
-        model_cfg = getattr(config, "model", config)
-        inner_params_vision = getattr(model_cfg, "inner_params_vision", [])
-        inner_params_lang = getattr(model_cfg, "inner_params_lang", [])
-        inner_params = getattr(model_cfg, "inner_params", [])
-        
-        # Validate required params based on mode
-        if self.mode == "vision" and not inner_params_vision:
-            raise ValueError("mode='vision' requires config.model.inner_params_vision")
-        elif self.mode == "language" and not inner_params_lang:
-            raise ValueError("mode='language' requires config.model.inner_params_lang")
-        elif self.mode == "language_last" and not inner_params:
-            raise ValueError("mode='language_last' requires config.model.inner_params")
-        elif self.mode == "dual_sbert" and not inner_params_vision:
-            raise ValueError("mode='dual_sbert' requires config.model.inner_params_vision")
-        
-        def _setup_hook(param_name):
-            name = param_name.rsplit(".", 1)[0] if param_name.endswith((".weight", ".bias")) else param_name
-            mod = parent_module(self.model, brackets_to_periods(name))
-            layer = getattr(mod, name.rsplit(".", 1)[-1])
-            return layer.register_forward_hook(
-                lambda m, i, o: setattr(self, "_act", i[0].detach() if isinstance(i[0], torch.Tensor) else None)
-            )
-        
-        # Setup single hook based on mode
-        if self.mode == "vision":
-            self._hook = _setup_hook(inner_params_vision[0])
-        elif self.mode == "language":
-            self._hook = _setup_hook(inner_params_lang[0])
-        elif self.mode == "language_last":
-            self._hook = _setup_hook(inner_params[0])
-        elif self.mode == "dual_sbert":
-            self._hook = _setup_hook(inner_params_vision[0])
-        else:
-            raise ValueError(f"Unknown mode: {self.mode}")
+        # VLM activation hooks (skipped for standalone_dual)
+        self._hook = None
+        if self.mode != "standalone_dual":
+            model_cfg = getattr(config, "model", config)
+            inner_params_vision = getattr(model_cfg, "inner_params_vision", [])
+            inner_params_lang = getattr(model_cfg, "inner_params_lang", [])
+            inner_params = getattr(model_cfg, "inner_params", [])
+
+            if self.mode == "vision" and not inner_params_vision:
+                raise ValueError("mode='vision' requires config.model.inner_params_vision")
+            elif self.mode == "language" and not inner_params_lang:
+                raise ValueError("mode='language' requires config.model.inner_params_lang")
+            elif self.mode == "language_last" and not inner_params:
+                raise ValueError("mode='language_last' requires config.model.inner_params")
+            elif self.mode == "dual_sbert" and not inner_params_vision:
+                raise ValueError("mode='dual_sbert' requires config.model.inner_params_vision")
+
+            def _setup_hook(param_name):
+                name = param_name.rsplit(".", 1)[0] if param_name.endswith((".weight", ".bias")) else param_name
+                mod = parent_module(self.model, brackets_to_periods(name))
+                layer = getattr(mod, name.rsplit(".", 1)[-1])
+                return layer.register_forward_hook(
+                    lambda m, i, o: setattr(self, "_act", i[0].detach() if isinstance(i[0], torch.Tensor) else None)
+                )
+
+            if self.mode == "vision":
+                self._hook = _setup_hook(inner_params_vision[0])
+            elif self.mode == "language":
+                self._hook = _setup_hook(inner_params_lang[0])
+            elif self.mode == "language_last":
+                self._hook = _setup_hook(inner_params[0])
+            elif self.mode == "dual_sbert":
+                self._hook = _setup_hook(inner_params_vision[0])
+            else:
+                raise ValueError(f"Unknown mode: {self.mode}")
 
     @property
     def grid_size(self) -> int:
@@ -244,6 +260,77 @@ class ReasonEdit(nn.Module):
             emb = torch.cat([emb, lang_emb], dim=-1)
         
         return emb
+
+    # ---- standalone image encoder (mode="standalone_dual") ----
+
+    def _resolve_lang_scaler(self, config, cfg) -> float:
+        """Explicit ``editor.lang_scaler`` wins.
+
+        ``standalone_dual`` otherwise reads the recorded combo in
+        ``auto_scaler/scalers.yaml``. VLM modes keep ``lang_scaler_sbert``.
+        """
+        override = getattr(cfg, "lang_scaler", None)
+        if override is not None:
+            return float(override)
+        if self.mode != "standalone_dual":
+            raw = getattr(getattr(config, "model", config), "lang_scaler_sbert", 30.0)
+            if raw is None:
+                raise ValueError("model.lang_scaler_sbert is null")
+            return float(raw)
+        from .auto_scaler.store import combo_key, require_scaler
+        from .encoders import encoder_tag
+        image_tag = encoder_tag(self._image_encoder_name, kind="image", pool=self._image_encoder_pool)
+        text_tag = encoder_tag(self._text_encoder_name, kind="text")
+        pool = f" --image_encoder_pool {self._image_encoder_pool}"
+        command = (
+            "python -m reasonedit.run.auto_scaler "
+            f"--image_encoder {self._image_encoder_name} "
+            f"--text_encoder {self._text_encoder_name} "
+            f"--dataset {self._scaler_dataset}{pool}"
+        )
+        print(f"[ReasonEdit] balancing weight key: {combo_key(image_tag, text_tag, self._scaler_dataset)}")
+        return require_scaler(image_tag, text_tag, self._scaler_dataset, command)
+
+    def _get_image_encoder(self):
+        """Lazy-load the standalone image encoder."""
+        if self._image_encoder is None:
+            from .encoders import get_image_encoder
+            self._image_encoder = get_image_encoder(
+                self._image_encoder_name,
+                device=self.device,
+                pool=self._image_encoder_pool,
+            )
+        return self._image_encoder
+
+    def _get_text_encoder(self):
+        """Lazy-load the standalone text encoder."""
+        if self._text_encoder is None:
+            from .encoders import get_text_encoder
+            self._text_encoder = get_text_encoder(self._text_encoder_name, device=self.device)
+        return self._text_encoder
+
+    @torch.no_grad()
+    def _encode_standalone(self, images: List, texts: List[str]) -> torch.Tensor:
+        """Encode using the standalone image encoder and text encoder.
+
+        No VLM forward pass or hooks involved.
+
+        Returns: [B, img_dim + text_dim] float32 tensor.
+        """
+        images = [images] if not isinstance(images, list) else images
+        images = [Image.open(im).convert("RGB") if isinstance(im, str) else im for im in images]
+        img_emb = self._get_image_encoder().encode(images)
+        lang_emb = self._get_text_encoder().encode(texts) * self.lang_scaler
+        return torch.cat([img_emb.to(self.device), lang_emb.to(self.device)], dim=-1)
+
+    def _encode(self, images: List, texts: List[str]) -> torch.Tensor:
+        """Unified encoding dispatcher — routes to the right encoder for
+        the current mode.  All call sites that previously called
+        ``_encode_vlm`` should call this instead.
+        """
+        if self.mode == "standalone_dual":
+            return self._encode_standalone(images, texts)
+        return self._encode_vlm(images, texts)
 
     @torch.no_grad()
     def _get_nll(self, image, prompt: str, label: str) -> float:
@@ -350,7 +437,7 @@ class ReasonEdit(nn.Module):
         for _ in range(self.n_radius_samples):
             aug_img = self.augmenter.image(img, area_pct=self.radius_area_pct)
             aug_text = self.augmenter.question(text) if is_question else self.augmenter.rationale(text) if text else ""
-            aug_emb = self._encode_vlm([aug_img], [aug_text])
+            aug_emb = self._encode([aug_img], [aug_text])
             aug_dists.append(float(torch.norm(aug_emb.cpu() - key_emb.cpu())))
         return float(np.percentile(aug_dists, self.radius_percentile)) * self.radius_scaler
 
@@ -365,7 +452,7 @@ class ReasonEdit(nn.Module):
         # augment method
         radii = []
         for i, patch in enumerate(query_patches):
-            aug_emb = self._encode_vlm([self.augmenter.image(patch, area_pct=self.radius_area_pct)], [question])
+            aug_emb = self._encode([self.augmenter.image(patch, area_pct=self.radius_area_pct)], [question])
             if self.distance == "cosine":
                 aug_emb = F.normalize(aug_emb, dim=-1)
             radii.append(float(torch.norm(aug_emb.cpu() - q_embs[i:i+1].cpu())))
@@ -477,7 +564,7 @@ class ReasonEdit(nn.Module):
         # Compute embeddings and radii (clean text for embedding only)
         # clean_texts = [self._clean_key_text(t) for t in new_texts]
         clean_texts = new_texts
-        new_embs = self._encode_vlm(new_imgs, clean_texts)
+        new_embs = self._encode(new_imgs, clean_texts)
         if self.distance == "cosine":
             new_embs = F.normalize(new_embs, dim=-1)
         
@@ -498,7 +585,7 @@ class ReasonEdit(nn.Module):
             aug_imgs = [self.augmenter.image(new_imgs[i], area_pct=self.radius_area_pct) for i in aug_idxs]
             aug_texts = [self.augmenter.question(new_texts[i]) if new_is_question[i] else self.augmenter.rationale(new_texts[i]) for i in aug_idxs]
             # aug_texts = [self.augmenter.question(new_texts[i]) for i in aug_idxs]
-            aug_embs = self._encode_vlm(aug_imgs, aug_texts)
+            aug_embs = self._encode(aug_imgs, aug_texts)
             if self.distance == "cosine":
                 aug_embs = F.normalize(aug_embs, dim=-1)
             aug_embs = aug_embs.cpu()
@@ -728,7 +815,7 @@ class ReasonEdit(nn.Module):
                             key_indices: List[int] = None) -> List[str]:
         """Retrieve top cap_keys from filtered edits."""
         # Build query embeddings
-        q_embs = self._encode_vlm(query_patches, [question] * len(query_patches))
+        q_embs = self._encode(query_patches, [question] * len(query_patches))
         if self.distance == "cosine":
             q_embs = F.normalize(q_embs, dim=-1)
         q_embs = q_embs.cpu()
@@ -783,7 +870,7 @@ class ReasonEdit(nn.Module):
         
         query_patches = [image]  # Use whole image for query
         
-        q_embs = self._encode_vlm(query_patches, [question] * len(query_patches)).cpu()
+        q_embs = self._encode(query_patches, [question] * len(query_patches)).cpu()
         if self.distance == "cosine":
             q_embs = F.normalize(q_embs, dim=-1)
         
@@ -1294,7 +1381,7 @@ class ReasonEdit(nn.Module):
         if query_img is not None and query_text is not None:
             matched_global = self._get_matched_indices(query_img, query_text, apply_cap_k=apply_cap_k)
             query_patches = [query_img]  # Use whole image for query
-            q_embs = self._encode_vlm(query_patches, [query_text] * len(query_patches)).cpu()
+            q_embs = self._encode(query_patches, [query_text] * len(query_patches)).cpu()
             if self.distance == "cosine":
                 q_embs = F.normalize(q_embs, dim=-1)
             q_emb = q_embs[0].numpy()
@@ -1376,7 +1463,9 @@ class ReasonEdit(nn.Module):
         # ax.legend(loc='lower left', fontsize=6, frameon=False, handletextpad=0.1)
         
         dist_mode = "eff" if use_effective_dist else "raw"
-        if self.mode == "dual_sbert":
+        if self.mode == "standalone_dual":
+            title = f"Standalone Dual ({self._image_encoder_name})"
+        elif self.mode == "dual_sbert":
             title = "Balanced Embedding"
         elif self.mode in ["language", "language_last"]:
             title = "Language-biased Embedding"

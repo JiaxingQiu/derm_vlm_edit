@@ -1,5 +1,31 @@
 data/
 derm_vlms
-results/
-jobs/
+test*
+tmp/
+
+# Python
 __pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+
+# HF / caches
+hf_cache/
+.cache/
+
+.env
+*.local
+
+# Results / artifacts
+results/
+ckpts/
+jobs/
+wandb/
+log/
+
+
+ssh
+tokens*
+WORKBOOK.md
+*recompute.py

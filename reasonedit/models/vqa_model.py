@@ -2,7 +2,14 @@ import torch
 import logging
 import math
 from PIL import Image
-from .models import *
+from . import (
+    clean_answer,
+    get_hf_model,
+    get_preprocess,
+    get_processor,
+    get_tokenizer,
+    nll_to_probs,
+)
 from typing import Dict
 
 LOG = logging.getLogger(__name__)

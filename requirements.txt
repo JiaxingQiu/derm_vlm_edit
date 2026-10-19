@@ -1,0 +1,14 @@
+# torch==2.8.0 and torchvision==0.23.0 are installed first, from readme.md.
+# They are not pinned here so this file does not replace those CUDA 12.8 wheels.
+
+transformers==4.57.1
+accelerate==1.8.1
+peft==0.16.0
+sentence-transformers==5.1.0
+pillow==11.0.0
+numpy
+scipy
+PyYAML
+matplotlib
+tqdm
+ipykernel

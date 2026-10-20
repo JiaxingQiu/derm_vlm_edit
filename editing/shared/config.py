@@ -18,19 +18,26 @@ from pathlib import Path
 #     images                 -> /scratch/jq2uw/derm_vlms/results/images
 #     midas_share_dictionary.json -> /scratch/jq2uw/derm_vlms/data_share/midas_share_dictionary.json
 #   reasonedit/                                     (slim ReasonEdit: editor + VQA wrapper + 2 VLMs)
-#   reliability/                                    (this package: acc-only experiment)
+#   editing/shared/                                  (this config + data engineering)
+#   editing/reliability/                              (reliability metric)
+#   editing/text_generality/                          (text generality metric)
+#   editing/image_generality/                         (image generality metric)
 # NOTE: data/ symlinks target the absolute repo path, so no top-level
 #       `derm_vlms` / `reasonedit` symlink is required.
-DERM_EDIT_ROOT = Path(__file__).resolve().parent.parent          # derm_vlm_edit/
-PKG_ROOT = Path(__file__).resolve().parent                        # reliability/
+SHARED_ROOT = Path(__file__).resolve().parent                      # editing/shared/
+EDITING_ROOT = SHARED_ROOT.parent                                 # editing/
+DERM_EDIT_ROOT = EDITING_ROOT.parent                              # derm_vlm_edit/
 
 DATA_ROOT = DERM_EDIT_ROOT / "data"                              # symlinks into the preserved repo
 ANNOTATIONS_CSV = DATA_ROOT / "annotations_export.csv"
 IMAGE_ROOT = DATA_ROOT / "images"                                # {case_id}.jpg
 MIDAS_DICT = DATA_ROOT / "midas_share_dictionary.json"
 
-RESULTS_DIR = PKG_ROOT / "results"                               # run JSONs, edit sets, report.csv
-OUTPUT_DIR = RESULTS_DIR                                         # edit_set / summary live here too
+# Each metric writes its own results under editing/<metric>/results/.
+# edit_set and summary JSONLs live under reliability/results/ (the first
+# metric that builds them), but the paths are overridable.
+RESULTS_DIR = EDITING_ROOT / "reliability" / "results"
+OUTPUT_DIR = RESULTS_DIR
 
 # Slim ReasonEdit package (editor + VQAModel + MedGemma/DermatoLlama loaders)
 REASONEDIT_PKG = DERM_EDIT_ROOT / "reasonedit"

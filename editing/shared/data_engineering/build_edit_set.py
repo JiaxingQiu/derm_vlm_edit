@@ -14,7 +14,8 @@ from collections import Counter
 from pathlib import Path
 from typing import List, Optional
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+SHARED = Path(__file__).resolve().parent.parent          # editing/shared/
+sys.path.insert(0, str(SHARED))
 
 import config as C  # noqa: E402
 from data_engineering.parse_annotations import (  # noqa: E402

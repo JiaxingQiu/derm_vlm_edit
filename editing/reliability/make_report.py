@@ -20,8 +20,9 @@ import json
 import sys
 from pathlib import Path
 
-PKG = Path(__file__).resolve().parent
-sys.path.insert(0, str(PKG))
+PKG = Path(__file__).resolve().parent                            # editing/reliability/
+SHARED = PKG.parent / "shared"                                   # editing/shared/
+sys.path.insert(0, str(SHARED))
 import config as C
 
 # VLM column groups: (short_model key in results JSON, display name)

@@ -21,8 +21,9 @@ import os
 import sys
 from pathlib import Path
 
-PKG = Path(__file__).resolve().parent
-sys.path.insert(0, str(PKG))
+PKG = Path(__file__).resolve().parent                            # editing/reliability/
+SHARED = PKG.parent / "shared"                                   # editing/shared/
+sys.path.insert(0, str(SHARED))
 
 import config as C
 from data_engineering.normalize_dx import normalize
@@ -51,6 +52,12 @@ def resolve_layers(model, config):
         resolved = [validate_and_correct_param_name(model.model, n) for n in names]
         setattr(config.model, attr, resolved)
         print(f"[layers] {attr}: {resolved}", flush=True)
+
+
+def result_path(user, model_short, tag="standalone"):
+    safe = user.replace("@", "_at_").replace(".", "_")
+    prefix = "reliability_standalone" if tag == "standalone" else "reliability"
+    return C.RESULTS_DIR / f"{prefix}__{safe}__{model_short}.json"
 
 
 def evaluate(user, model_short, model, config, *,
@@ -113,9 +120,7 @@ def evaluate(user, model_short, model, config, *,
         "cases": rows,
     }
     os.makedirs(C.RESULTS_DIR, exist_ok=True)
-    safe = user.replace("@", "_at_").replace(".", "_")
-    prefix = "reliability_standalone" if tag == "standalone" else "reliability"
-    out = C.RESULTS_DIR / f"{prefix}__{safe}__{model_short}.json"
+    out = result_path(user, model_short, tag)
     out.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"{user} / {model_short}: {n_pre}/{n} -> {n_post}/{n}")
     return result

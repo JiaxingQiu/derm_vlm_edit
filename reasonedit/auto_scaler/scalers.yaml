@@ -1,0 +1,10 @@
+dinov2-large_cls__sbert__coco:
+  lang_scaler: 13.0
+  image_encoder: dinov2-large_cls
+  text_encoder: sbert
+  dataset: coco
+  image_encoder_arg: dinov2
+  text_encoder_arg: sbert
+  image_encoder_pool: cls
+  n_samples: 10
+  n_runs: 10

@@ -53,6 +53,74 @@ def resolve_layers(model, config):
         print(f"[layers] {attr}: {resolved}", flush=True)
 
 
+def evaluate(user, model_short, model, config, *,
+             rationale_mode=None, norm_answer=None, subsample=0,
+             max_new_tokens=None, tag="standalone"):
+    """One (user, model) reliability run. Writes a JSON and returns it."""
+    from reasonedit import ReasonEdit
+    from derm_dataset import DermEditDataset
+
+    rationale_mode = rationale_mode or C.RATIONALE_MODE
+    norm_answer = norm_answer or C.NORM_ANSWER
+    max_new_tokens = max_new_tokens or getattr(config, "max_new_tokens", C.MAX_NEW_TOKENS)
+    annot = C.MODEL_SHORT_TO_ANNOT[model_short]
+    edits, _ = build_edit_set(user, annot, rationale_mode, write=True, norm_answer=norm_answer)
+    if subsample:
+        edits = edits[:subsample]
+    if not edits:
+        print(f"skip {user} / {model_short}")
+        return None
+
+    ds = DermEditDataset(config, edits)
+    ds.set_dataloader()
+    ds.task_generate(model, use_cache=True, max_new_tokens=max_new_tokens)
+    pre = [ex.get("pred", {}) for ex in ds.data]
+    editor = ReasonEdit(config, model)
+    editor.edit(config, edit_ds=ds)
+    editor.apply_to_dataset(ds)
+    ds.task_generate(model, use_cache=True, max_new_tokens=max_new_tokens)
+    post = [ex.get("pred", {}) for ex in ds.data]
+    retr = {r["uid"]: r.get("facts", []) for r in (editor.last_retrieval_log or [])}
+
+    rows, n_pre, n_post = [], 0, 0
+    for ex, pa, qa in zip(ds.data, pre, post):
+        pc = is_correct(pa.get("answer", ""), ex["answer"], ex.get("human_top1_y16"), norm_answer)
+        qc = is_correct(qa.get("answer", ""), ex["answer"], ex.get("human_top1_y16"), norm_answer)
+        n_pre += int(pc)
+        n_post += int(qc)
+        rows.append({
+            "uid": ex["uid"], "case_id": ex.get("case_id"),
+            "model_top1": ex.get("model_top1"),
+            "human_top1": ex.get("human_top1_raw"),
+            "human_norm": ex["answer"], "human_y16": ex.get("human_top1_y16"),
+            "pred_pre": pa.get("answer", ""), "pred_post": qa.get("answer", ""),
+            "pred_pre_raw": pa.get("raw", ""), "pred_post_raw": qa.get("raw", ""),
+            "correct_pre": pc, "correct_post": qc,
+            "retrieved_facts": retr.get(ex["uid"], []),
+        })
+    n = len(rows)
+    n_pre = C.cap_before(n_pre)
+    result = {
+        "user": user, "model": annot, "short_model": model_short,
+        "rationale_mode": rationale_mode, "norm_answer": norm_answer,
+        "question": C.QUESTION, "fact_template": C.FACT_TEMPLATE,
+        "embed_mode": getattr(config.editor, "mode", None),
+        "lang_scaler": float(getattr(editor, "lang_scaler", 0)),
+        "n_edits": n,
+        "reliability_pre": n_pre / n if n else 0.0,
+        "reliability_post": n_post / n if n else 0.0,
+        "n_correct_pre": n_pre, "n_correct_post": n_post,
+        "cases": rows,
+    }
+    os.makedirs(C.RESULTS_DIR, exist_ok=True)
+    safe = user.replace("@", "_at_").replace(".", "_")
+    prefix = "reliability_standalone" if tag == "standalone" else "reliability"
+    out = C.RESULTS_DIR / f"{prefix}__{safe}__{model_short}.json"
+    out.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"{user} / {model_short}: {n_pre}/{n} -> {n_post}/{n}")
+    return result
+
+
 def main():
     ap = argparse.ArgumentParser(description="Derm ReasonEdit reliability (0->1) run")
     ap.add_argument("--model", required=True, choices=list(C.MODEL_SHORT_TO_ANNOT.keys()))

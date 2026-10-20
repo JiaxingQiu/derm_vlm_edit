@@ -39,10 +39,10 @@ def _short_user(user: str) -> str:
     return user.split("@")[0]
 
 
-def load_results(results_dir: Path):
-    """Return {(user, short_model): result_dict} for all report JSONs found."""
+def load_results(results_dir: Path, pattern: str = "reliability__*.json"):
+    """Return {(user, short_model): result_dict} for report JSONs matching pattern."""
     out = {}
-    for p in sorted(results_dir.glob("reliability__*.json")):
+    for p in sorted(results_dir.glob(pattern)):
         with open(p, encoding="utf-8") as f:
             r = json.load(f)
         out[(r["user"], r["short_model"])] = r

@@ -1,4 +1,8 @@
-Both notebooks are front ends for the same steps. `run_individual.ipynb` builds one codebook per dermatologist. `run_collect.ipynb` puts all three dermatologists into one codebook, one case per sample, then scores that codebook.
+`run.py` does collect, then individual. Each uses `standalone_dual`, then `language_last`. Resume keeps finished metrics. Results go under `results/{embed_mode}/{collect|individual}/`.
+
+    python run.py
+
+The notebooks are the same steps for one mode at a time. `run_individual.ipynb` builds one codebook per dermatologist. `run_collect.ipynb` puts all three dermatologists into one codebook, one case per sample.
 
 A case marked wrong by any user is an edit. If two users mark it wrong and give different corrections, the case is printed and left out of the codebook. If one user marks it wrong and another marks it correct, the correction is kept.
 

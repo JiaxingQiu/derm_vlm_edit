@@ -21,3 +21,9 @@ def bootstrap() -> Path:
     if root not in sys.path:
         sys.path.insert(0, root)
     return PERTURB_ROOT
+
+
+def results_dir(root, split, embed_mode) -> Path:
+    """results/{embed_mode}/{split}."""
+    mode = (embed_mode or "dual_sbert").strip()
+    return Path(root) / "results" / mode / split

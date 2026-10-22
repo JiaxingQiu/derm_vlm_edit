@@ -1,4 +1,9 @@
-"""Collect the edit list. This is the only step that differs between notebooks."""
+"""Collect the edit list and the locality list.
+
+The edit list is cases a user marked wrong. The locality list is cases no user
+marked wrong. Collective edits are one row per case: a disagreement about the
+correction is logged and dropped, and a single "wrong" label wins over "correct".
+"""
 
 from __future__ import annotations
 
@@ -6,6 +11,7 @@ from collections import defaultdict
 
 import config as C
 from data_engineering.build_edit_set import build as build_edit_set
+from data_engineering.parse_annotations import load_records
 
 
 def collect_user(user, model_short, rationale_mode=None, norm_answer=None, subsample=0):
@@ -21,8 +27,33 @@ def collect_user(user, model_short, rationale_mode=None, norm_answer=None, subsa
     return edits, summary
 
 
+def dedupe_cases(edits):
+    """One row per case. Differing corrections are returned separately and dropped."""
+    groups = defaultdict(list)
+    order = []
+    for edit in edits:
+        case_id = edit["case_id"]
+        if case_id not in groups:
+            order.append(case_id)
+        groups[case_id].append(edit)
+    kept, conflicts = [], []
+    for case_id in order:
+        items = groups[case_id]
+        answers = list(dict.fromkeys(item.get("answer") for item in items))
+        if len(answers) > 1:
+            conflicts.append({
+                "case_id": case_id,
+                "model": items[0].get("model"),
+                "users": [item.get("login_id") for item in items],
+                "answers": answers,
+            })
+            continue
+        kept.append(items[0])
+    return kept, conflicts
+
+
 def collect_all(users, model_short, rationale_mode=None, norm_answer=None, subsample=0):
-    """Concatenate every user's edits into one codebook list."""
+    """Unique cases across users. Wrong wins because only error rows are collected."""
     edits, summaries = [], []
     for user in users:
         chunk, summary = collect_user(
@@ -30,9 +61,46 @@ def collect_all(users, model_short, rationale_mode=None, norm_answer=None, subsa
         )
         edits.extend(chunk)
         summaries.append(summary)
+    edits, conflicts = dedupe_cases(edits)
     if subsample:
         edits = edits[:subsample]
-    return edits, summaries
+    return edits, {"summaries": summaries, "conflicts": conflicts}
+
+
+def collect_locality(users, model_short, subsample=0):
+    """Completed cases for this model that no listed user marked top-1 incorrect."""
+    annot = C.MODEL_SHORT_TO_ANNOT[model_short]
+    user_set = set(users)
+    by_case = defaultdict(list)
+    for rec in load_records(C.ANNOTATIONS_CSV):
+        if rec.model != annot or rec.login_id not in user_set or not rec.marked_complete:
+            continue
+        by_case[rec.case_id].append(rec)
+    rows = []
+    for case_id, items in sorted(by_case.items()):
+        if any(rec.is_top1_error for rec in items):
+            continue
+        image = C.image_path_for(case_id)
+        if not image.exists():
+            continue
+        rec = items[0]
+        rows.append({
+            "uid": f"locality__{rec.model}__{case_id}",
+            "image": str(image),
+            "question": C.QUESTION,
+            "answer": rec.model_top1 or "",
+            "rationale": "",
+            "cot": "",
+            "login_id": "",
+            "model": rec.model,
+            "case_id": case_id,
+            "model_top1": rec.model_top1,
+            "human_top1_raw": "",
+            "human_top1_y16": None,
+        })
+    if subsample:
+        rows = rows[:subsample]
+    return rows
 
 
 def overlap_report(edits):

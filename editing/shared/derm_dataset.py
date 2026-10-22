@@ -35,6 +35,7 @@ class DermEditDataset:
             "human_top1_raw": e.get("human_top1_raw"),
             "human_top1_y16": e.get("human_top1_y16"),
             "case_id": e.get("case_id"),
+            "login_id": e.get("login_id"),
         }
 
     def set_dataloader(self):
@@ -59,7 +60,8 @@ class DermEditDataset:
         except Exception:
             pass
         for ex in self.data:
-            img = Image.open(ex["image"]).convert("RGB")
+            img = ex["image"]
+            img = img.convert("RGB") if isinstance(img, Image.Image) else Image.open(img).convert("RGB")
             outs = model.generate(
                 [img], [ex["prompt"]],
                 max_new_tokens=max_new_tokens, use_cache=use_cache,

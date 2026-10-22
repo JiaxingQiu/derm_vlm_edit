@@ -675,6 +675,14 @@ class ReasonEdit(nn.Module):
         self._compute_centroid_sigmas()
         self._compute_reject_threshold()
 
+    def _refresh_retrieval_stats(self):
+        """Recompute whatever `_add_edit` invalidated.  Sigmas first: the
+        threshold is a percentile of the distances retrieval actually uses."""
+        if self.hubness_keys and self.key_sigmas is None:
+            self._compute_key_sigmas()
+        if self.key_dist_threshold is None:
+            self._compute_reject_threshold()
+
     def _compute_reject_threshold(self, max_sample: int = 2000):
         """Compute rejection threshold as percentile of pairwise key distances (hubness-scaled if enabled)."""
         if self.reject_threshold_pct <= 0 or self.key_embs is None or len(self.key_embs) < 2:
@@ -790,15 +798,13 @@ class ReasonEdit(nn.Module):
             dists = 1 - (q_embs @ key_embs.t())
         else:
             dists = torch.cdist(q_embs.float(), key_embs.float(), p=2)
-        if self.hubness_keys:
-            if self.key_sigmas is None:
-                self._compute_key_sigmas()
-            if self.key_sigmas is not None:
-                sigmas = self.key_sigmas[torch.tensor(key_indices)]
-                dists = dists / (sigmas + self.hubness_eps)
-                if not getattr(self, '_hubness_logged', False):
-                    print(f"[Hubness correction] enabled, scaling distances by σ_k")
-                    self._hubness_logged = True
+        self._refresh_retrieval_stats()
+        if self.hubness_keys and self.key_sigmas is not None:
+            sigmas = self.key_sigmas[torch.tensor(key_indices)]
+            dists = dists / (sigmas + self.hubness_eps)
+            if not getattr(self, '_hubness_logged', False):
+                print(f"[Hubness correction] enabled, scaling distances by σ_k")
+                self._hubness_logged = True
         return dists
 
     @torch.no_grad()
@@ -938,8 +944,6 @@ class ReasonEdit(nn.Module):
         
         self.last_retrieval_log = log
         print(f"[ReasonEdit] applied facts to {applied}/{len(data)} examples", flush=True)
-        for i, ex in enumerate(data[:3]):
-            print(f"  [{i}] q='{ex.get('question','')}' answer='{ex.get('answer','')}' prompt='{ex.get('prompt','')}'")
 
     def edit(self, config, tokens=None, batch_history=None, edit_ds=None, train_ds=None):
         """Add edits to codebook.

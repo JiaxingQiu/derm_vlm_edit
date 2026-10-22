@@ -69,6 +69,9 @@ class VQAModel(torch.nn.Module):
             kwargs["do_sample"] = False  
             kwargs["num_beams"] = 1 
             kwargs.pop("temperature", None)
+        eos_id = getattr(self.tokenizer, "eos_token_id", None)
+        if eos_id is not None:
+            kwargs.setdefault("pad_token_id", eos_id)
         with torch.no_grad():
             outputs = self.model.generate(**inputs, **kwargs)
             outputs_text = self.processor.batch_decode(outputs, skip_special_tokens=True)

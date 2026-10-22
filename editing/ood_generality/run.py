@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Collective OOD generality. standalone_dual, then language_last.
 
-Finished metrics are kept. Missing ones continue. Generality is last because
-it generates on every leftover combined MIDAS case.
+The codebook matches perturb_generality collect. Reliability and locality are
+left there. This run only scores leftover combined MIDAS cases.
 
     python run.py
     python run.py --overwrite
@@ -23,7 +23,7 @@ bootstrap()
 
 import config as C
 from utils.edit import edit
-from utils.edits import collect_all, collect_locality, collect_ood
+from utils.edits import collect_all, collect_ood
 from utils.eval import load_suite, load_vlm, needs_compute, render_table, run_suite
 
 USERS = [
@@ -70,10 +70,9 @@ def run_collect(embed_mode, overwrite=False, resume=True):
         for row in report["conflicts"]:
             users = ", ".join(str(u).split("@")[0] for u in row["users"])
             print(f"  drop {row['case_id']}: {users} -> {', '.join(row['answers'])}")
-        locality = collect_locality(USERS, model_short, subsample=opts["subsample"])
         ood = collect_ood(USERS, model_short, subsample=opts["subsample"])
         n_before_text = sum(1 for row in ood if row.get("pred_before"))
-        print(f"{model_short}: {len(locality)} locality cases, {len(ood)} ood cases ({n_before_text} with a saved top-1)")
+        print(f"{model_short}: {len(ood)} ood cases ({n_before_text} with a saved top-1)")
         if not edits:
             print(f"skip {model_short}")
             continue
@@ -87,7 +86,7 @@ def run_collect(embed_mode, overwrite=False, resume=True):
         editor, queries = edit(vlm, config, edits)
         rows.append(run_suite(
             editor, vlm, queries, user=POOL, model_short=model_short,
-            out_dir=out, locality_edits=locality, ood_rows=ood,
+            out_dir=out, ood_rows=ood,
             norm_answer=opts["norm_answer"], max_new_tokens=opts["max_new_tokens"],
             overwrite=overwrite,
         ))
@@ -98,7 +97,7 @@ def run_collect(embed_mode, overwrite=False, resume=True):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Collective reliability, locality, and OOD generality.")
+    ap = argparse.ArgumentParser(description="Collective OOD generality for both embedding modes.")
     ap.add_argument("--overwrite", action="store_true")
     ap.add_argument("--no-resume", action="store_true")
     args = ap.parse_args()

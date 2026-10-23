@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Collect, then individual. Each uses standalone_dual, then language_last.
+"""Collective run only. Each embedding mode runs at reject percentiles 1 and 5.
 
-Finished metrics are kept. Missing ones continue.
+Finished metrics are kept. Missing ones continue. Results land in
+results/{embed_mode}_{threshold}/collect/. The per-dermatologist notebook is separate.
 
     python run.py
     python run.py --overwrite
@@ -32,6 +33,7 @@ USERS = [
 ]
 MODELS = ["medgemma", "dermatollama"]
 EMBED_MODES = ["standalone_dual", "language_last"]
+REJECT_THRESHOLDS = [1, 5]
 POOL = "all"
 
 
@@ -49,10 +51,16 @@ def _defaults():
     )
 
 
-def run_collect(embed_mode, overwrite=False, resume=True):
+def _tag(embed_mode, reject_threshold):
+    """1 and 1.0 both land in ``standalone_dual_1``."""
+    return f"{embed_mode}_{float(reject_threshold):g}"
+
+
+def run_collect(embed_mode, reject_threshold, overwrite=False, resume=True):
     opts = _defaults()
-    out = results_dir(ROOT, "collect", embed_mode)
-    print(f"results: {out}  mode={embed_mode}", flush=True)
+    tag = _tag(embed_mode, reject_threshold)
+    out = results_dir(ROOT, "collect", tag)
+    print(f"results: {out}  mode={embed_mode}  reject={reject_threshold}", flush=True)
     rows = []
     for model_short in MODELS:
         if not needs_compute(out, POOL, model_short, overwrite=overwrite, resume=resume):
@@ -79,7 +87,7 @@ def run_collect(embed_mode, overwrite=False, resume=True):
             model_short, max_new_tokens=opts["max_new_tokens"], seed=opts["seed"],
             embed_mode=embed_mode, image_encoder=opts["image_encoder"],
             image_pool=opts["image_pool"], text_encoder=opts["text_encoder"],
-            scaler_dataset=opts["scaler_dataset"],
+            scaler_dataset=opts["scaler_dataset"], reject_threshold=reject_threshold,
         )
         editor, queries = edit(vlm, config, edits)
         rows.append(run_suite(
@@ -94,10 +102,11 @@ def run_collect(embed_mode, overwrite=False, resume=True):
     print(render_table(rows))
 
 
-def run_individual(embed_mode, overwrite=False, resume=True):
+def run_individual(embed_mode, reject_threshold, overwrite=False, resume=True):
     opts = _defaults()
-    out = results_dir(ROOT, "individual", embed_mode)
-    print(f"results: {out}  mode={embed_mode}", flush=True)
+    tag = _tag(embed_mode, reject_threshold)
+    out = results_dir(ROOT, "individual", tag)
+    print(f"results: {out}  mode={embed_mode}  reject={reject_threshold}", flush=True)
     rows = []
     for model_short in MODELS:
         cached, todo = {}, []
@@ -115,7 +124,7 @@ def run_individual(embed_mode, overwrite=False, resume=True):
                 model_short, max_new_tokens=opts["max_new_tokens"], seed=opts["seed"],
                 embed_mode=embed_mode, image_encoder=opts["image_encoder"],
                 image_pool=opts["image_pool"], text_encoder=opts["text_encoder"],
-                scaler_dataset=opts["scaler_dataset"],
+                scaler_dataset=opts["scaler_dataset"], reject_threshold=reject_threshold,
             )
             for user in todo:
                 edits, _ = collect_user(
@@ -144,15 +153,18 @@ def run_individual(embed_mode, overwrite=False, resume=True):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Collect, then individual. Both embedding modes.")
+    ap = argparse.ArgumentParser(description="Collective run. Both embedding modes.")
+    ap.add_argument("--pct_threshold", type=float, default=None,
+                    help="One reject percentile, so two jobs can run in parallel. Omit to run 1 and 5.")
     ap.add_argument("--overwrite", action="store_true")
     ap.add_argument("--no-resume", action="store_true")
     args = ap.parse_args()
     resume = not args.no_resume
-    for split, fn in (("collect", run_collect), ("individual", run_individual)):
-        for mode in EMBED_MODES:
-            print(f"\n===== {split}  {mode} =====", flush=True)
-            fn(mode, overwrite=args.overwrite, resume=resume)
+    thresholds = REJECT_THRESHOLDS if args.pct_threshold is None else [args.pct_threshold]
+    for mode in EMBED_MODES:
+        for pct in thresholds:
+            print(f"\n===== collect  {mode}  reject={pct} =====", flush=True)
+            run_collect(mode, pct, overwrite=args.overwrite, resume=resume)
 
 
 if __name__ == "__main__":

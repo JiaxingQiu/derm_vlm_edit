@@ -22,7 +22,7 @@ METRICS = ("reliability", "text_generality", "image_generality", "locality")
 
 
 def load_vlm(model_short, *, max_new_tokens, seed, embed_mode, image_encoder,
-             image_pool, text_encoder, scaler_dataset):
+             image_pool, text_encoder, scaler_dataset, reject_threshold=0.1):
     import torch
     from reasonedit import VQAModel, load_config
     from run_efficacy import resolve_layers
@@ -34,6 +34,7 @@ def load_vlm(model_short, *, max_new_tokens, seed, embed_mode, image_encoder,
         mode=embed_mode, image_encoder=image_encoder,
         image_encoder_pool=image_pool, text_encoder=text_encoder,
         scaler_dataset=scaler_dataset,
+        reject_threshold_pct=reject_threshold,
     )
     config.editor.fact_template = C.FACT_TEMPLATE
     vlm = VQAModel(config)
@@ -174,14 +175,6 @@ def _cell(payload):
     return f"{payload['n_correct']}/{payload['n']}"
 
 
-def _overall(reliability, locality):
-    if not reliability or not locality:
-        return "--"
-    correct = reliability["n_correct"] + locality["n_correct"]
-    total = reliability["n"] + locality["n"]
-    return f"{correct}/{total}"
-
-
 def _write(out_dir, metric, user, model_short, annot, n_ok, rows):
     n = len(rows)
     payload = {
@@ -212,7 +205,6 @@ def _summary(user, model_short, payloads):
         "text_generality": _cell(payloads.get("text_generality")),
         "image_generality": _cell(payloads.get("image_generality")),
         "locality": _cell(payloads.get("locality")),
-        "overall": _overall(payloads.get("reliability"), payloads.get("locality")),
     }
 
 
@@ -260,13 +252,13 @@ def run_suite(editor, vlm, queries, *, user, model_short, out_dir, locality_edit
 
 def render_table(rows):
     lines = [
-        "| User | Model | Reliability | Text generality | Image generality | Locality | Overall |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| User | Model | Reliability | Text generality | Image generality | Locality |",
+        "| --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
         user = str(row["user"]).split("@")[0]
         lines.append(
             f"| {user} | {row['model']} | {row['reliability']} | {row['text_generality']} | "
-            f"{row['image_generality']} | {row['locality']} | {row['overall']} |"
+            f"{row['image_generality']} | {row['locality']} |"
         )
     return "\n".join(lines)

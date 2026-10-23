@@ -711,11 +711,24 @@ class ReasonEdit(nn.Module):
             # Single edit, so no between-edit reference exists yet: leave the gate open.
             self.key_dist_threshold = None
             return
-        self.key_dist_threshold = float(np.percentile(dists.numpy(), pct))
         pair_kind = "between-edit pairs" if self.reject_warmup == "flat" else "pairs"
-        print(f"[Reject] threshold={self.key_dist_threshold:.2f} (p{pct:g} of {len(dists)} "
-              f"{pair_kind}, n_edits={n_edits}, warmup={self.reject_warmup}, "
-              f"hubness={self.hubness_keys})")
+        raw = float(np.percentile(dists.numpy(), pct))
+        detail = (f"p{pct:g} of {len(dists)} {pair_kind}, n_edits={n_edits}, "
+                  f"warmup={self.reject_warmup}, hubness={self.hubness_keys}")
+        if raw > 0:
+            self.key_dist_threshold = raw
+            print(f"[Reject] threshold={raw:.2f} ({detail})")
+            return
+        positive = dists[dists > 0]
+        if positive.numel() == 0:
+            # Distance 0 does not fail `nearest > threshold`. A negative cutoff
+            # rejects every query, including a nearest key at distance 0.
+            self.key_dist_threshold = -1.0
+            print(f"[Reject] threshold shut ({detail}; p{pct:g} was 0 and every pair distance is 0)")
+            return
+        self.key_dist_threshold = float(positive.min())
+        print(f"[Reject] threshold={self.key_dist_threshold:.2f} "
+              f"({detail}; p{pct:g} was 0, using min non-zero distance)")
 
     def _compute_centroid_sigmas(self):
         """Compute centroid sigma as mean of constituent key sigmas."""

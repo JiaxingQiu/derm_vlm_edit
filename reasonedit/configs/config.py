@@ -29,7 +29,8 @@ def load_config(model_short: str, device=None, batch_size: int = 1,
                 max_new_tokens: int = 32, seed: int = 42,
                 mode: str = None, image_encoder: str = None,
                 image_encoder_pool: str = "cls", text_encoder: str = None,
-                scaler_dataset: str = None, lang_scaler: float = None):
+                scaler_dataset: str = None, lang_scaler: float = None,
+                reject_threshold_pct: float = None):
     """Build the NestedConfig-shaped object ReasonEdit / VQAModel expect.
 
     Editor knobs are left empty so ReasonEdit.__init__ defaults apply
@@ -52,6 +53,9 @@ def load_config(model_short: str, device=None, batch_size: int = 1,
         text_encoder: Text encoder short name (``"sbert"`` or ``"minilm"``).
         scaler_dataset: Dataset name the balancing weight was recorded on.
         lang_scaler: Explicit balancing weight. Skips the recorded combo.
+        reject_threshold_pct: Percentile of key-key distances. A query is
+            edited only when its nearest key is within this percentile.
+            ``None`` keeps the ReasonEdit default (0.1).
     """
     key = str(model_short).lower()
     yaml_name = SHORT_TO_YAML.get(key)
@@ -86,6 +90,8 @@ def load_config(model_short: str, device=None, batch_size: int = 1,
         editor_kwargs["scaler_dataset"] = scaler_dataset
     if lang_scaler is not None:
         editor_kwargs["lang_scaler"] = lang_scaler
+    if reject_threshold_pct is not None:
+        editor_kwargs["reject_threshold_pct"] = float(reject_threshold_pct)
 
     return SimpleNamespace(
         batch_size=batch_size,

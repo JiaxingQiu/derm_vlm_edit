@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Collective OOD generality. standalone_dual, then language_last.
+"""Collective OOD generality. standalone_dual and language_last, each at reject percentiles 1 and 5.
 
 The codebook matches perturb_generality collect. Reliability and locality are
-left there. This run only scores leftover combined MIDAS cases.
+left there. This run only scores leftover combined MIDAS cases. Results land in
+results/{embed_mode}_{threshold}/collect/.
 
     python run.py
     python run.py --overwrite
@@ -33,6 +34,7 @@ USERS = [
 ]
 MODELS = ["medgemma", "dermatollama"]
 EMBED_MODES = ["standalone_dual", "language_last"]
+REJECT_THRESHOLDS = [1, 5]
 POOL = "all"
 
 
@@ -50,10 +52,16 @@ def _defaults():
     )
 
 
-def run_collect(embed_mode, overwrite=False, resume=True):
+def _tag(embed_mode, reject_threshold):
+    """1 and 1.0 both land in ``standalone_dual_1``."""
+    return f"{embed_mode}_{float(reject_threshold):g}"
+
+
+def run_collect(embed_mode, reject_threshold, overwrite=False, resume=True):
     opts = _defaults()
-    out = results_dir(ROOT, "collect", embed_mode)
-    print(f"results: {out}  mode={embed_mode}", flush=True)
+    tag = _tag(embed_mode, reject_threshold)
+    out = results_dir(ROOT, "collect", tag)
+    print(f"results: {out}  mode={embed_mode}  reject={reject_threshold}", flush=True)
     rows = []
     for model_short in MODELS:
         if not needs_compute(out, POOL, model_short, overwrite=overwrite, resume=resume):
@@ -81,7 +89,7 @@ def run_collect(embed_mode, overwrite=False, resume=True):
             model_short, max_new_tokens=opts["max_new_tokens"], seed=opts["seed"],
             embed_mode=embed_mode, image_encoder=opts["image_encoder"],
             image_pool=opts["image_pool"], text_encoder=opts["text_encoder"],
-            scaler_dataset=opts["scaler_dataset"],
+            scaler_dataset=opts["scaler_dataset"], reject_threshold=reject_threshold,
         )
         editor, queries = edit(vlm, config, edits)
         rows.append(run_suite(
@@ -98,13 +106,17 @@ def run_collect(embed_mode, overwrite=False, resume=True):
 
 def main():
     ap = argparse.ArgumentParser(description="Collective OOD generality for both embedding modes.")
+    ap.add_argument("--pct_threshold", type=float, default=None,
+                    help="One reject percentile, so two jobs can run in parallel. Omit to run 1 and 5.")
     ap.add_argument("--overwrite", action="store_true")
     ap.add_argument("--no-resume", action="store_true")
     args = ap.parse_args()
     resume = not args.no_resume
+    thresholds = REJECT_THRESHOLDS if args.pct_threshold is None else [args.pct_threshold]
     for mode in EMBED_MODES:
-        print(f"\n===== collect  {mode} =====", flush=True)
-        run_collect(mode, overwrite=args.overwrite, resume=resume)
+        for pct in thresholds:
+            print(f"\n===== collect  {mode}  reject={pct} =====", flush=True)
+            run_collect(mode, pct, overwrite=args.overwrite, resume=resume)
 
 
 if __name__ == "__main__":

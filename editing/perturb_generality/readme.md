@@ -1,4 +1,4 @@
-`run.py` does the collective run only. Each uses `standalone_dual`, then `language_last`, at reject percentiles 1 and 5. Resume keeps finished metrics. Results go under `results/{embed_mode}_{threshold}/collect/`. The earlier runs are `standalone_dual_0.1` and `language_last_0.1`.
+`run.py` does the collective run only. Each uses `standalone_dual`, then `language_last`, at reject percentiles 1 and 5. Resume keeps finished metrics. Results go under `results/perturb_gen/{embed_mode}_{threshold}/collect/`. The earlier runs are `standalone_dual_0.1` and `language_last_0.1`.
 
 A percentile that comes out as distance 0 is replaced by the smallest key-to-key distance above 0. If every pair is 0, the gate stays shut.
 

@@ -22,6 +22,7 @@ from pathlib import Path
 #   editing/reliability/                              (reliability metric)
 #   editing/text_generality/                          (text generality metric)
 #   editing/image_generality/                         (image generality metric)
+#   results/                                          (saved runs, one folder per job)
 # NOTE: data/ symlinks target the absolute repo path, so no top-level
 #       `derm_vlms` / `reasonedit` symlink is required.
 SHARED_ROOT = Path(__file__).resolve().parent                      # editing/shared/
@@ -33,11 +34,25 @@ ANNOTATIONS_CSV = DATA_ROOT / "annotations_export.csv"
 IMAGE_ROOT = DATA_ROOT / "images"                                # {case_id}.jpg
 MIDAS_DICT = DATA_ROOT / "midas_share_dictionary.json"
 
-# Each metric writes its own results under editing/<metric>/results/.
-# edit_set and summary JSONLs live under reliability/results/ (the first
-# metric that builds them), but the paths are overridable.
-RESULTS_DIR = EDITING_ROOT / "reliability" / "results"
+# Saved runs live under the repo, one folder per job. Edit-set JSONLs live
+# with the reliability job.
+RESULTS_ROOT = DERM_EDIT_ROOT / "results"
+RESULTS_DIR = RESULTS_ROOT / "reliability"
 OUTPUT_DIR = RESULTS_DIR
+
+_RESULT_JOBS = {
+    "perturb_generality": "perturb_gen",
+    "ood_generality": "ood_gen",
+    "reliability": "reliability",
+    "text_generality": "text_gen",
+}
+
+
+def results_dir(task_root, split, embed_mode) -> Path:
+    """results/<job>/{embed_mode}_{threshold}/{split}."""
+    job = _RESULT_JOBS[Path(task_root).name]
+    mode = (embed_mode or "dual_sbert").strip()
+    return RESULTS_ROOT / job / mode / split
 
 # Slim ReasonEdit package (editor + VQAModel + MedGemma/DermatoLlama loaders)
 REASONEDIT_PKG = DERM_EDIT_ROOT / "reasonedit"

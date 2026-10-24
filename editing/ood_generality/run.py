@@ -3,7 +3,7 @@
 
 The codebook matches perturb_generality collect. Reliability and locality are
 left there. This run only scores leftover combined MIDAS cases. Results land in
-results/{embed_mode}_{threshold}/collect/.
+results/ood_gen/{embed_mode}_{threshold}/collect/.
 
     python run.py
     python run.py --overwrite

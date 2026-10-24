@@ -2,7 +2,7 @@
 """Collective run only. Each embedding mode runs at reject percentiles 1 and 5.
 
 Finished metrics are kept. Missing ones continue. Results land in
-results/{embed_mode}_{threshold}/collect/. The per-dermatologist notebook is separate.
+results/perturb_gen/{embed_mode}_{threshold}/collect/. The per-dermatologist notebook is separate.
 
     python run.py
     python run.py --overwrite

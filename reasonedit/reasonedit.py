@@ -513,7 +513,8 @@ class ReasonEdit(nn.Module):
         self.codebook[idx]["merge_count"] = self.codebook[idx].get("merge_count", 1) + 1
 
     @torch.no_grad()
-    def _add_edit(self, img, question: str, answer: str, rationale_sents: List[str], uid=None):
+    def _add_edit(self, img, question: str, answer: str, rationale_sents: List[str],
+                  uid=None, case_id=None, image_path=None):
         """Add keys for one edit."""
         answer_value = (
             self.fact_template.format(question=question, answer=answer)
@@ -558,6 +559,11 @@ class ReasonEdit(nn.Module):
                         new_imgs.append(patch)
                         new_texts.append(sent)
                         new_is_question.append(False)
+
+        source_image = image_path if isinstance(image_path, str) else (img if isinstance(img, str) else "")
+        for entry in new_entries:
+            entry["case_id"] = case_id or ""
+            entry["image"] = source_image
         
         self._edit_count += 1
         
@@ -820,19 +826,31 @@ class ReasonEdit(nn.Module):
                 self._hubness_logged = True
         return dists
 
+    @staticmethod
+    def _empty_match() -> dict:
+        return {"case_id": "", "image": "", "fact": "", "distance": None}
+
     @torch.no_grad()
-    def _retrieve(self, image, question: str) -> List[str]:
-        """Retrieve values for a query <image, question>."""
+    def _retrieve(self, image, question: str):
+        """Retrieve values for a query <image, question>.
+
+        Returns the fact strings and the nearest matched codebook key.
+        """
         if self.key_embs is None or len(self.codebook) == 0:
-            return []
+            return [], self._empty_match()
         
         query_patches = [image]  # Use whole image for query
         return self._retrieve_from_keys(query_patches, question)
 
     @torch.no_grad()
     def _retrieve_from_keys(self, query_patches: List, question: str, 
-                            key_indices: List[int] = None) -> List[str]:
-        """Retrieve top cap_keys from filtered edits."""
+                            key_indices: List[int] = None):
+        """Retrieve top cap_keys from filtered edits.
+
+        The second value is the nearest applied key: case id, image path,
+        fact, and distance. It is empty when nothing is applied.
+        """
+        empty = self._empty_match()
         # Build query embeddings
         q_embs = self._encode(query_patches, [question] * len(query_patches))
         if self.distance == "cosine":
@@ -844,12 +862,12 @@ class ReasonEdit(nn.Module):
             if self.cap_edits > 0 and self.edit_centroids is not None:
                 top_edit_ids = set(self._get_top_edits(q_embs))
                 if not top_edit_ids:
-                    return []
+                    return [], empty
                 key_indices = [i for i, e in enumerate(self.codebook) if e["edit_idx"] in top_edit_ids]
             else:
                 key_indices = list(range(len(self.codebook)))
         if not key_indices:
-            return []
+            return [], empty
         
         # Compute distances [n_patches, n_keys]
         dist_matrix = self._compute_distances(q_embs, key_indices)
@@ -860,7 +878,7 @@ class ReasonEdit(nn.Module):
             within_radius = (dist_matrix < q_radii[:, None]).any(dim=0)  # [n_keys]
             valid_local = torch.where(within_radius)[0].tolist()
             if not valid_local:
-                return []
+                return [], empty
             dist_matrix = dist_matrix[:, valid_local]
             key_indices = [key_indices[i] for i in valid_local]
         
@@ -869,17 +887,24 @@ class ReasonEdit(nn.Module):
         
         # Rejection gate: query too far from all keys
         if self.key_dist_threshold is not None and min_dists.min() > self.key_dist_threshold:
-            return []
+            return [], empty
         
         top_local = min_dists.argsort()[:self.cap_keys].tolist()
         
-        # Collect unique values
+        # Collect unique values. The recorded match is the nearest key.
         retrieved = set()
         for local_i in top_local:
             value = self.codebook[key_indices[local_i]]["value"]
             if value:
                 retrieved.add(value)
-        return list(retrieved)
+        nearest = self.codebook[key_indices[top_local[0]]]
+        match = {
+            "case_id": nearest.get("case_id") or "",
+            "image": nearest.get("image") or "",
+            "fact": nearest.get("value") or "",
+            "distance": float(min_dists[top_local[0]]),
+        }
+        return list(retrieved), match
 
     @torch.no_grad()
     def _get_matched_indices(self, image, question: str, apply_cap_k: bool = True) -> set:
@@ -944,7 +969,7 @@ class ReasonEdit(nn.Module):
             if not prompt_orig or img is None:
                 continue
             
-            facts = self._retrieve(img, q) if q else []
+            facts, match = self._retrieve(img, q) if q else ([], self._empty_match())
             
             if facts:
                 ex["prompt_orig"] = prompt_orig
@@ -953,7 +978,15 @@ class ReasonEdit(nn.Module):
             else:
                 ex["prompt"] = prompt_orig
             
-            log.append({"uid": ex.get("uid"), "n_facts": len(facts), "facts": facts})
+            log.append({
+                "uid": ex.get("uid"),
+                "n_facts": len(facts),
+                "facts": facts,
+                "retrieved_case_id": match["case_id"],
+                "retrieved_image": match["image"],
+                "retrieved_fact": match["fact"],
+                "retrieved_distance": match["distance"],
+            })
         
         self.last_retrieval_log = log
         print(f"[ReasonEdit] applied facts to {applied}/{len(data)} examples", flush=True)
@@ -995,7 +1028,8 @@ class ReasonEdit(nn.Module):
         for i, (ex, sents, uid) in enumerate(valid_exs):
             print(f"\r[ReasonEdit] edit {i+1}/{len(valid_exs)}...", end="", flush=True)
             self._add_edit(ex.get("image"), ex.get("question", ""), 
-                          ex.get("answer") or ex.get("target") or (ex.get("gold") or {}).get("label") or "", sents, uid=uid)
+                          ex.get("answer") or ex.get("target") or (ex.get("gold") or {}).get("label") or "", sents,
+                          uid=uid, case_id=ex.get("case_id"), image_path=ex.get("image"))
             self._added_uids.add(uid)
         
         n_after = len(self.codebook)

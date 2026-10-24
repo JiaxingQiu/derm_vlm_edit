@@ -1,9 +1,9 @@
 """Aggregate reliability run JSONs into a PI-ready before/after table.
 
-Reads every ``results/reliability__{user}__{model}.json`` and writes one
+Reads every ``results/reliability/reliability__{user}__{model}.json`` and writes one
 wide table (the same layout as the PI display) to:
 
-    results/report.csv
+    results/reliability/report.csv
 
 Layout: rows = users, column groups = VLMs, subcolumns = Before | After | d.
 Cells are ``% (k/N)``.

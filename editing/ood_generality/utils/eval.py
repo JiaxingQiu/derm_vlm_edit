@@ -47,7 +47,7 @@ def eval_generality(editor, vlm, ood_rows, config, *, norm_answer, max_new_token
     ds.set_dataloader()
     editor.apply_to_dataset(ds)
     ds.task_generate(vlm, use_cache=True, max_new_tokens=max_new_tokens)
-    retr = {row["uid"]: row.get("facts", []) for row in (editor.last_retrieval_log or [])}
+    log = {row["uid"]: row for row in (editor.last_retrieval_log or [])}
     rows, n_before, n_after = [], 0, 0
     for src, ex in zip(ood_rows, ds.data):
         pred_before = src.get("pred_before") or ""
@@ -56,6 +56,7 @@ def eval_generality(editor, vlm, ood_rows, config, *, norm_answer, max_new_token
         ok_after = is_correct(pred_after, ex["answer"], ex.get("human_top1_y16"), norm_answer)
         n_before += int(ok_before)
         n_after += int(ok_after)
+        hit = log.get(ex["uid"]) or {}
         rows.append({
             "uid": ex["uid"],
             "case_id": ex.get("case_id"),
@@ -64,7 +65,11 @@ def eval_generality(editor, vlm, ood_rows, config, *, norm_answer, max_new_token
             "pred": pred_after,
             "correct_before": ok_before,
             "correct": ok_after,
-            "retrieved": bool(retr.get(ex["uid"])),
+            "retrieved": bool(hit.get("facts")),
+            "retrieved_case_id": hit.get("retrieved_case_id") or "",
+            "retrieved_image": hit.get("retrieved_image") or "",
+            "retrieved_fact": hit.get("retrieved_fact") or "",
+            "retrieved_distance": hit.get("retrieved_distance"),
         })
     return n_before, n_after, rows
 
@@ -95,12 +100,12 @@ def _read_metric(out_dir, metric, user, model_short):
 
 
 def _slice_counts(rows):
-    """gen_acc is fixes among original errors. gen_loc is breaks among original successes."""
-    n_wrong = n_fixed = n_right = n_broken = 0
+    """gen_acc is fixes among original errors. gen_loc is original successes that stay correct."""
+    n_wrong = n_fixed = n_right = n_kept = 0
     for row in rows:
         if row.get("correct_before"):
             n_right += 1
-            n_broken += int(not row.get("correct"))
+            n_kept += int(bool(row.get("correct")))
         else:
             n_wrong += 1
             n_fixed += int(bool(row.get("correct")))
@@ -108,7 +113,8 @@ def _slice_counts(rows):
         "n_orig_wrong": n_wrong,
         "n_fixed": n_fixed,
         "n_orig_correct": n_right,
-        "n_broken": n_broken,
+        "n_kept": n_kept,
+        "n_broken": n_right - n_kept,
     }
 
 
@@ -116,8 +122,11 @@ def _with_slices(payload):
     if not payload:
         return None
     merged = dict(payload)
-    if "n_fixed" not in merged or "n_broken" not in merged:
-        merged.update(_slice_counts(merged.get("cases") or []))
+    if "n_kept" not in merged:
+        if "n_fixed" not in merged or "n_broken" not in merged:
+            merged.update(_slice_counts(merged.get("cases") or []))
+        elif merged.get("n_orig_correct") is not None and merged.get("n_broken") is not None:
+            merged["n_kept"] = merged["n_orig_correct"] - merged["n_broken"]
     if "n_correct_before" not in merged:
         merged["n_correct_before"] = sum(
             1 for row in (merged.get("cases") or []) if row.get("correct_before")
@@ -139,7 +148,7 @@ def _format_scores(payload):
         f"gen_all before {_pair(payload.get('n_correct_before'), payload.get('n'))}  "
         f"gen_all after {_pair(payload.get('n_correct'), payload.get('n'))}  "
         f"gen_acc {_pair(payload.get('n_fixed'), payload.get('n_orig_wrong'))}  "
-        f"gen_loc {_pair(payload.get('n_broken'), payload.get('n_orig_correct'))}"
+        f"gen_loc {_pair(payload.get('n_kept'), payload.get('n_orig_correct'))}"
     )
 
 
@@ -186,7 +195,7 @@ def _summary(user, model_short, payloads):
             None if not generality else generality.get("n_orig_wrong"),
         ),
         "gen_loc": _pair(
-            None if not generality else generality.get("n_broken"),
+            None if not generality else generality.get("n_kept"),
             None if not generality else generality.get("n_orig_correct"),
         ),
     }
@@ -225,6 +234,18 @@ def run_suite(editor, vlm, queries, *, user, model_short, out_dir, ood_rows,
 
 
 def render_table(rows):
+    labeled = any(row.get("threshold") for row in rows)
+    if labeled:
+        lines = [
+            "| Mode | Threshold | Model | gen_all before | gen_all after | gen_acc | gen_loc |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
+        for row in rows:
+            lines.append(
+                f"| {row.get('embed_mode', '')} | {row.get('threshold', '')} | {row['model']} | "
+                f"{row['gen_all_before']} | {row['gen_all_after']} | {row['gen_acc']} | {row['gen_loc']} |"
+            )
+        return "\n".join(lines)
     lines = [
         "| User | Model | gen_all before | gen_all after | gen_acc | gen_loc |",
         "| --- | --- | --- | --- | --- | --- |",

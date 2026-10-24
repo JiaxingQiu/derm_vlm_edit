@@ -24,6 +24,7 @@ def bootstrap() -> Path:
 
 
 def results_dir(root, split, embed_mode) -> Path:
-    """results/{embed_mode}_{threshold}/{split}. The tag includes the threshold."""
-    mode = (embed_mode or "dual_sbert").strip()
-    return Path(root) / "results" / mode / split
+    """Repo results/perturb_gen/{embed_mode}_{threshold}/{split}."""
+    import config as C
+
+    return C.results_dir(root, split, embed_mode)

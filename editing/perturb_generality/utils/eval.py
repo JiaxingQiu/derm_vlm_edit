@@ -48,8 +48,23 @@ def _clone(queries):
     return cloned
 
 
+def _retrieval_log(editor):
+    return {row["uid"]: row for row in (editor.last_retrieval_log or [])}
+
+
+def _match_fields(log, uid):
+    row = log.get(uid) or {}
+    return {
+        "retrieved": bool(row.get("facts")),
+        "retrieved_case_id": row.get("retrieved_case_id") or "",
+        "retrieved_image": row.get("retrieved_image") or "",
+        "retrieved_fact": row.get("retrieved_fact") or "",
+        "retrieved_distance": row.get("retrieved_distance"),
+    }
+
+
 def _score(ds, editor, norm_answer):
-    retr = {row["uid"]: row.get("facts", []) for row in (editor.last_retrieval_log or [])}
+    log = _retrieval_log(editor)
     rows, n_ok = [], 0
     for ex in ds.data:
         pred = ex.get("pred", {})
@@ -64,7 +79,7 @@ def _score(ds, editor, norm_answer):
             "human_y16": ex.get("human_top1_y16"),
             "pred": pred.get("answer", ""),
             "correct": ok,
-            "retrieved": bool(retr.get(ex["uid"])),
+            **_match_fields(log, ex["uid"]),
         })
     return n_ok, rows
 
@@ -114,7 +129,7 @@ def eval_locality(editor, vlm, locality_edits, config, *, norm_answer, max_new_t
     after = _clone(base)
     editor.apply_to_dataset(after)
     after.task_generate(vlm, use_cache=True, max_new_tokens=max_new_tokens)
-    retr = {row["uid"]: row.get("facts", []) for row in (editor.last_retrieval_log or [])}
+    log = _retrieval_log(editor)
     rows, n_ok = [], 0
     for old, new in zip(before.data, after.data):
         pred_before = (old.get("pred") or {}).get("answer", "")
@@ -128,7 +143,7 @@ def eval_locality(editor, vlm, locality_edits, config, *, norm_answer, max_new_t
             "pred_before": pred_before,
             "pred": pred_after,
             "correct": ok,
-            "retrieved": bool(retr.get(new["uid"])),
+            **_match_fields(log, new["uid"]),
         })
     return n_ok, rows
 
@@ -251,6 +266,19 @@ def run_suite(editor, vlm, queries, *, user, model_short, out_dir, locality_edit
 
 
 def render_table(rows):
+    labeled = any(row.get("threshold") for row in rows)
+    if labeled:
+        lines = [
+            "| Mode | Threshold | Model | Reliability | Text generality | Image generality | Locality |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
+        for row in rows:
+            lines.append(
+                f"| {row.get('embed_mode', '')} | {row.get('threshold', '')} | {row['model']} | "
+                f"{row['reliability']} | {row['text_generality']} | {row['image_generality']} | "
+                f"{row['locality']} |"
+            )
+        return "\n".join(lines)
     lines = [
         "| User | Model | Reliability | Text generality | Image generality | Locality |",
         "| --- | --- | --- | --- | --- | --- |",

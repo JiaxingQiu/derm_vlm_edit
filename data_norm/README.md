@@ -14,7 +14,6 @@ is a reasonable name for that pathology category. The result column is
 | File | Role |
 |---|---|
 | `soft_normalize.ipynb` | **Interactive notebook** — run this to inspect and produce the CSV |
-| `soft_normalize.py` | CLI wrapper (same logic, `--no-llm` / `--dry-run` flags) |
 | `gt.py` | Load MIDAS ground-truth `y16` keyed by `case_id` |
 | `llm_judge.py` | GPT-4o judge: does the free text match the pathology category? |
 | `tokens.py` | Azure OpenAI credentials (gitignored — create locally) |
@@ -30,27 +29,20 @@ Resolved from `editing/shared/config.py`:
 
 ## Run
 
-**Notebook** (recommended):
 ```bash
 cd derm_vlm_edit/data_norm
 jupyter notebook soft_normalize.ipynb
 ```
 Set `USE_LLM = True` or `False` in cell 2. Run all cells.
 
-**CLI**:
-```bash
-cd derm_vlm_edit
-python data_norm/soft_normalize.py            # rule + LLM
-python data_norm/soft_normalize.py --no-llm   # rule only
-python data_norm/soft_normalize.py --dry-run  # list mismatches, no API calls
-```
+With `USE_LLM = True`, every run calls GPT-4o on the current mismatches. A previous `llm_judgments.json` is not reused, so new annotations are judged when the notebook is rerun. The same free text and pathology label is asked only once inside that run.
 
 ## Output
 
 Written to `data/normed/`:
 
 - `edits_soft_normalized.csv` — one row per correction with `human_top1_y16_soft`
-- `llm_judgments.json` — cached LLM verdicts (reruns only call the API for new mismatches)
+- `llm_judgments.json` — verdicts from this run (a record, not an input to the next run)
 
 > **Note:** Stage 2 and stage 3 do not read this CSV yet. They rebuild edits
 > from `annotations_export.csv` using the rule-based `y16` label directly.

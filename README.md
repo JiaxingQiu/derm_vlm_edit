@@ -29,8 +29,7 @@ python -m ipykernel install --user --name dermedit --display-name "dermedit"
 Rule-map free-text corrections to the 16-class MIDAS `y16` taxonomy, then ask GPT-4o only where the rule label disagrees with MIDAS pathology ground truth. Output goes to `data/normed/`. See [`data_norm/README.md`](data_norm/README.md).
 
 ```bash
-cd data_norm && jupyter notebook soft_normalize.ipynb   # interactive (recommended)
-python data_norm/soft_normalize.py                      # or CLI
+cd data_norm && jupyter notebook soft_normalize.ipynb
 ```
 
 ### Stage 2 — Tune the balancing weight (`reasonedit/auto_scaler/`)

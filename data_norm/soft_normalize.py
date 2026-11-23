@@ -28,7 +28,8 @@ from data_engineering.parse_annotations import filter_records, load_records  # n
 
 from gt import load as load_gt  # noqa: E402
 
-OUT_DIR = Path(__file__).resolve().parent / "output"
+DERM_EDIT_ROOT = Path(__file__).resolve().parents[1]
+OUT_DIR = DERM_EDIT_ROOT / "data" / "normed"
 OUT_CSV = OUT_DIR / "edits_soft_normalized.csv"
 LLM_CACHE = OUT_DIR / "llm_judgments.json"
 

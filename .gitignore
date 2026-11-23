@@ -1,4 +1,7 @@
 data/
+reasonedit/auto_scaler/data/
+reasonedit/auto_scaler/data_derm/
+reasonedit/encoders/weights/
 derm_vlms
 test*
 tmp/
@@ -15,6 +18,9 @@ hf_cache/
 .cache/
 
 .env
+.openai_key
+.azure_key
+tokens.py
 *.local
 
 # Results / artifacts

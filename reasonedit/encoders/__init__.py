@@ -13,6 +13,7 @@ import inspect
 from .base import ImageEncoder
 from .biomedclip import BiomedCLIPEncoder
 from .dinov2 import DINOv2Encoder
+from .panderm import PanDermEncoder
 from .text import SentenceEncoder
 
 # short name -> (class, default kwargs)
@@ -23,6 +24,7 @@ _IMAGE = {
     "dinov2-large": (DINOv2Encoder, {"model_name": "facebook/dinov2-large"}),
     "dinov2-giant": (DINOv2Encoder, {"model_name": "facebook/dinov2-giant"}),
     "biomedclip": (BiomedCLIPEncoder, {}),
+    "panderm": (PanDermEncoder, {}),
 }
 
 _TEXT = {
@@ -82,6 +84,7 @@ __all__ = [
     "ImageEncoder",
     "DINOv2Encoder",
     "BiomedCLIPEncoder",
+    "PanDermEncoder",
     "SentenceEncoder",
     "get_image_encoder",
     "get_text_encoder",

@@ -12,9 +12,11 @@ from collections import defaultdict
 import config as C
 from data_engineering.build_edit_set import build as build_edit_set
 from data_engineering.parse_annotations import load_records
+from retrieval_images import attach
 
 
-def collect_user(user, model_short, rationale_mode=None, norm_answer=None, subsample=0):
+def collect_user(user, model_short, rationale_mode=None, norm_answer=None, subsample=0,
+                 retrieval_image="combined"):
     """One dermatologist's top-1 errors for one model."""
     rationale_mode = rationale_mode or C.RATIONALE_MODE
     norm_answer = norm_answer or C.NORM_ANSWER
@@ -24,7 +26,7 @@ def collect_user(user, model_short, rationale_mode=None, norm_answer=None, subsa
     )
     if subsample:
         edits = edits[:subsample]
-    return edits, summary
+    return attach(edits, retrieval_image), summary
 
 
 def dedupe_cases(edits):
@@ -52,12 +54,14 @@ def dedupe_cases(edits):
     return kept, conflicts
 
 
-def collect_all(users, model_short, rationale_mode=None, norm_answer=None, subsample=0):
+def collect_all(users, model_short, rationale_mode=None, norm_answer=None, subsample=0,
+                retrieval_image="combined"):
     """Unique cases across users. Wrong wins because only error rows are collected."""
     edits, summaries = [], []
     for user in users:
         chunk, summary = collect_user(
             user, model_short, rationale_mode=rationale_mode, norm_answer=norm_answer,
+            retrieval_image=retrieval_image,
         )
         edits.extend(chunk)
         summaries.append(summary)
@@ -67,7 +71,7 @@ def collect_all(users, model_short, rationale_mode=None, norm_answer=None, subsa
     return edits, {"summaries": summaries, "conflicts": conflicts}
 
 
-def collect_locality(users, model_short, subsample=0):
+def collect_locality(users, model_short, subsample=0, retrieval_image="combined"):
     """Completed cases for this model that no listed user marked top-1 incorrect."""
     annot = C.MODEL_SHORT_TO_ANNOT[model_short]
     user_set = set(users)
@@ -100,7 +104,7 @@ def collect_locality(users, model_short, subsample=0):
         })
     if subsample:
         rows = rows[:subsample]
-    return rows
+    return attach(rows, retrieval_image)
 
 
 def overlap_report(edits):

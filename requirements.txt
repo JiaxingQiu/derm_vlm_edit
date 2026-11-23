@@ -12,3 +12,7 @@ PyYAML
 matplotlib
 tqdm
 ipykernel
+openpyxl==3.1.5
+gdown
+open_clip_torch==2.32.0
+ftfy

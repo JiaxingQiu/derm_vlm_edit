@@ -1,0 +1,322 @@
+{
+  "Squamous cell carcinoma||Other Benign": {
+    "match": false,
+    "reason": "Squamous cell carcinoma is a malignant condition and does not fall under the 'Other Benign' pathology category."
+  },
+  "pigmented SCC||Dermatofibroma": {
+    "match": false,
+    "reason": "Pigmented SCC refers to a subtype of squamous cell carcinoma, which is unrelated to dermatofibroma, a benign fibrohistiocytic lesion."
+  },
+  "squamous cell carcinoma||Actinic Keratosis": {
+    "match": false,
+    "reason": "Squamous cell carcinoma is a malignant condition, whereas actinic keratosis is a precancerous lesion that can potentially progress to squamous cell carcinoma but is not the same entity."
+  },
+  "basal cell carcinoma||Other Benign": {
+    "match": false,
+    "reason": "Basal cell carcinoma is a malignant skin cancer and does not fall under the 'Other Benign' pathology category."
+  },
+  "Fibrous papule||Melanocytic Nevus": {
+    "match": false,
+    "reason": "Fibrous papule is a benign lesion typically found on the nose and is not related to melanocytic nevus, which is a lesion derived from melanocytes."
+  },
+  "actinic keratosis||Squamous Cell Carcinoma": {
+    "match": true,
+    "reason": "Actinic keratosis is a precursor lesion to squamous cell carcinoma and falls within the spectrum of this pathology category."
+  },
+  "scar||Basal Cell Carcinoma": {
+    "match": false,
+    "reason": "A scar is not clinically synonymous with basal cell carcinoma, which is a type of skin cancer."
+  },
+  "seborrheic keratosis||Actinic Keratosis": {
+    "match": false,
+    "reason": "Seborrheic keratosis and actinic keratosis are distinct entities; seborrheic keratosis is a benign epidermal growth, while actinic keratosis is a precancerous lesion caused by sun damage."
+  },
+  "Seborrheic keratosis||Actinic Keratosis": {
+    "match": false,
+    "reason": "Seborrheic keratosis and actinic keratosis are distinct entities with different etiologies and clinical features."
+  },
+  "lentigo||Actinic Keratosis": {
+    "match": false,
+    "reason": "Lentigo refers to a benign pigmented lesion, whereas actinic keratosis is a precancerous lesion caused by sun damage."
+  },
+  "SCC||Actinic Keratosis": {
+    "match": false,
+    "reason": "SCC (squamous cell carcinoma) is a malignant condition, whereas actinic keratosis is a precancerous lesion that can potentially progress to SCC but is not the same entity."
+  },
+  "wart||Actinic Keratosis": {
+    "match": false,
+    "reason": "A wart is caused by human papillomavirus (HPV), whereas actinic keratosis is a precancerous lesion caused by chronic sun exposure."
+  },
+  "inflamed SK||Basal Cell Carcinoma": {
+    "match": false,
+    "reason": "Inflamed seborrheic keratosis (SK) is a benign lesion and does not clinically match basal cell carcinoma, which is a malignant skin cancer."
+  },
+  "SCCIS/SCC||Actinic Keratosis": {
+    "match": false,
+    "reason": "SCCIS/SCC refers to squamous cell carcinoma in situ or invasive squamous cell carcinoma, which is a progression beyond actinic keratosis."
+  },
+  "neurofibroma||Melanocytic Nevus": {
+    "match": false,
+    "reason": "Neurofibroma is a tumor of nerve sheath origin, whereas melanocytic nevus refers to a proliferation of melanocytes; they are distinct entities."
+  },
+  "lichenoid keratosis||Melanocytic Nevus": {
+    "match": false,
+    "reason": "Lichenoid keratosis is a benign inflammatory lesion, whereas melanocytic nevus refers to a proliferation of melanocytes and they are distinct entities."
+  },
+  "irritated SK||Melanocytic Nevus": {
+    "match": false,
+    "reason": "An irritated seborrheic keratosis (SK) is not clinically synonymous with a melanocytic nevus, as they are distinct entities with different origins."
+  },
+  "SK||Other Benign": {
+    "match": true,
+    "reason": "SK (seborrheic keratosis) is a benign lesion and falls under the 'Other Benign' pathology category."
+  },
+  "dermatofibroma||Other Benign": {
+    "match": true,
+    "reason": "Dermatofibroma is a benign skin lesion, which falls under the 'Other Benign' pathology category."
+  },
+  "scar||Other Benign": {
+    "match": true,
+    "reason": "A scar is a benign condition and falls under the 'Other Benign' category as it is not malignant or inflammatory."
+  },
+  "SCC||Seborrheic Keratosis": {
+    "match": false,
+    "reason": "SCC refers to squamous cell carcinoma, which is a malignant tumor, whereas seborrheic keratosis is a benign epidermal growth."
+  },
+  "AK||Squamous Cell Carcinoma": {
+    "match": false,
+    "reason": "AK (actinic keratosis) is a precursor lesion to squamous cell carcinoma but is not the same disease."
+  },
+  "surface of vascular growth like a hemangioma||Other Benign": {
+    "match": true,
+    "reason": "A hemangioma is a benign vascular growth, which falls under the 'Other Benign' pathology category."
+  },
+  "melanoma||Seborrheic Keratosis": {
+    "match": false,
+    "reason": "Melanoma is a malignant neoplasm of melanocytes, whereas seborrheic keratosis is a benign epidermal growth; they are distinct entities."
+  },
+  "SCC||Basal Cell Carcinoma": {
+    "match": false,
+    "reason": "SCC refers to Squamous Cell Carcinoma, which is a distinct entity from Basal Cell Carcinoma."
+  },
+  "AK||Squamous Cell Carcinoma In Situ": {
+    "match": false,
+    "reason": "AK (actinic keratosis) is a precursor lesion to squamous cell carcinoma in situ but is not the same diagnosis."
+  },
+  "BCC||Squamous Cell Carcinoma": {
+    "match": false,
+    "reason": "BCC (Basal Cell Carcinoma) and Squamous Cell Carcinoma are distinct types of skin cancer with different histopathological features."
+  },
+  "rosacea||Hemangioma": {
+    "match": false,
+    "reason": "Rosacea is a chronic inflammatory skin condition, whereas hemangioma is a benign vascular tumor; they are distinct entities."
+  },
+  "atypical nevus||Seborrheic Keratosis": {
+    "match": false,
+    "reason": "An atypical nevus is a melanocytic lesion, whereas seborrheic keratosis is a benign epidermal lesion; they are distinct entities."
+  },
+  "lentigo||Seborrheic Keratosis": {
+    "match": false,
+    "reason": "Lentigo refers to a pigmented lesion, typically a benign melanocytic proliferation, whereas seborrheic keratosis is a distinct benign epidermal growth with different histopathological features."
+  },
+  "Lichenoid keratosis||Squamous Cell Carcinoma In Situ": {
+    "match": false,
+    "reason": "Lichenoid keratosis is a benign lesion, whereas squamous cell carcinoma in situ is a malignant condition."
+  },
+  "Lichenoid keratosis||Actinic Keratosis": {
+    "match": false,
+    "reason": "Lichenoid keratosis is a benign inflammatory lesion, whereas actinic keratosis is a precancerous lesion caused by sun damage."
+  },
+  "Eczematous dermatosis||Squamous Cell Carcinoma In Situ": {
+    "match": false,
+    "reason": "Eczematous dermatosis refers to inflammatory skin conditions, whereas squamous cell carcinoma in situ is a precancerous lesion and not related to eczema."
+  },
+  "Lichenoid keratosis||Basal Cell Carcinoma": {
+    "match": false,
+    "reason": "Lichenoid keratosis is a benign inflammatory lesion, whereas basal cell carcinoma is a malignant neoplasm, so they are not clinically related."
+  },
+  "Nevus||Basal Cell Carcinoma": {
+    "match": false,
+    "reason": "Nevus refers to a benign melanocytic lesion, whereas basal cell carcinoma is a malignant skin cancer, so they are not clinically equivalent."
+  },
+  "Seborrheic keratosis||Basal Cell Carcinoma": {
+    "match": false,
+    "reason": "Seborrheic keratosis is a benign lesion, whereas basal cell carcinoma is a malignant skin cancer, so they are distinct entities."
+  },
+  "Melanoma in situ||Melanocytic Lesion": {
+    "match": true,
+    "reason": "Melanoma in situ is a subtype of melanocytic lesion, as it originates from melanocytes and falls under this broader category."
+  },
+  "Eczematous dermatitis||Squamous Cell Carcinoma In Situ": {
+    "match": false,
+    "reason": "Eczematous dermatitis is an inflammatory skin condition, whereas squamous cell carcinoma in situ is a precancerous lesion; they are distinct entities."
+  },
+  "Lichen simplex chronicus||Other Benign": {
+    "match": true,
+    "reason": "Lichen simplex chronicus is a benign skin condition characterized by chronic itching and scratching, which fits within the 'Other Benign' pathology category."
+  },
+  "Lentigo||Other Benign": {
+    "match": true,
+    "reason": "Lentigo is a benign pigmented lesion, which falls under the 'Other Benign' pathology category."
+  },
+  "Lichenoid keratosis||Squamous Cell Carcinoma": {
+    "match": false,
+    "reason": "Lichenoid keratosis is a benign inflammatory lesion, whereas squamous cell carcinoma is a malignant neoplasm."
+  },
+  "Squamous cell carcinoma in situ||Squamous Cell Carcinoma": {
+    "match": true,
+    "reason": "Squamous cell carcinoma in situ is a recognized subtype of squamous cell carcinoma, representing an early, non-invasive form of the disease."
+  },
+  "Prurigo nodularis||Actinic Keratosis": {
+    "match": false,
+    "reason": "Prurigo nodularis is a chronic pruritic skin condition, whereas actinic keratosis is a precancerous lesion caused by sun damage; they are unrelated conditions."
+  },
+  "Prurigo nodularis||Squamous Cell Carcinoma": {
+    "match": false,
+    "reason": "Prurigo nodularis is a chronic pruritic skin condition, whereas squamous cell carcinoma is a malignant neoplasm; they are unrelated clinically or pathologically."
+  },
+  "Acne||Basal Cell Carcinoma": {
+    "match": false,
+    "reason": "Acne is an inflammatory condition of the pilosebaceous unit, whereas basal cell carcinoma is a malignant skin tumor; they are unrelated."
+  },
+  "Lichenoid keratosis||Other Benign": {
+    "match": true,
+    "reason": "Lichenoid keratosis is a benign skin lesion and falls under the 'Other Benign' pathology category."
+  },
+  "Seborrheic keratosis||Melanocytic Nevus": {
+    "match": false,
+    "reason": "Seborrheic keratosis is a benign epidermal lesion, whereas melanocytic nevus refers to a benign proliferation of melanocytes; they are distinct entities."
+  },
+  "Irritated seborrheic keratosis||Other Benign": {
+    "match": true,
+    "reason": "Irritated seborrheic keratosis is a benign lesion and falls under the 'Other Benign' pathology category."
+  },
+  "Irritated nevus||Basal Cell Carcinoma": {
+    "match": false,
+    "reason": "An irritated nevus is a benign lesion, whereas basal cell carcinoma is a malignant skin cancer, so they are not clinically equivalent."
+  },
+  "Kaposi sarcoma||Melanoma": {
+    "match": false,
+    "reason": "Kaposi sarcoma is a vascular neoplasm and does not fall under the category of melanoma, which is a malignancy of melanocytes."
+  },
+  "Angiosarcoma||Melanoma": {
+    "match": false,
+    "reason": "Angiosarcoma is a malignant tumor of blood vessels, whereas melanoma is a malignancy of melanocytes; they are distinct entities."
+  },
+  "Irritated seborrheic keratosis||Squamous Cell Carcinoma In Situ": {
+    "match": false,
+    "reason": "Irritated seborrheic keratosis is a benign lesion, whereas squamous cell carcinoma in situ is a malignant condition, so they are not clinically equivalent."
+  },
+  "Lentigo||Melanocytic Nevus": {
+    "match": false,
+    "reason": "Lentigo is a benign pigmented lesion distinct from melanocytic nevus, which refers to a mole or nevocellular proliferation."
+  },
+  "Inflamed lentigo||Squamous Cell Carcinoma In Situ": {
+    "match": false,
+    "reason": "Inflamed lentigo refers to a benign pigmented lesion, whereas squamous cell carcinoma in situ is a malignant condition and does not clinically align with the diagnosis."
+  },
+  "Amelanotic melanoma||Squamous Cell Carcinoma In Situ": {
+    "match": false,
+    "reason": "Amelanotic melanoma is a subtype of melanoma, whereas squamous cell carcinoma in situ is a distinct entity and does not clinically overlap with melanoma."
+  },
+  "Scar||Other Benign": {
+    "match": true,
+    "reason": "A scar is a benign condition and falls under the 'Other Benign' category as it is not malignant or inflammatory."
+  },
+  "Acrofacial vitiligo||Other Benign": {
+    "match": false,
+    "reason": "Acrofacial vitiligo is a specific subtype of vitiligo, which is an autoimmune condition affecting pigmentation, and does not fall under the 'Other Benign' category."
+  },
+  "Inflamed lentigo||Other Benign": {
+    "match": true,
+    "reason": "Inflamed lentigo is a benign lesion and falls under the 'Other Benign' category."
+  },
+  "Melanoma||Other Benign": {
+    "match": false,
+    "reason": "Melanoma is a malignant condition and does not fall under the 'Other Benign' pathology category."
+  },
+  "SCCis, pigmented actinic keratosis||Melanoma": {
+    "match": false,
+    "reason": "The free-text diagnosis describes squamous cell carcinoma in situ (SCCis) and pigmented actinic keratosis, which are not clinically synonymous with melanoma."
+  },
+  "SCCis||Melanoma": {
+    "match": false,
+    "reason": "SCCis refers to squamous cell carcinoma in situ, which is a distinct entity and does not clinically match melanoma."
+  },
+  "Blue nevus vs melanoma vs recurrent nevus||Other Benign": {
+    "match": true,
+    "reason": "Blue nevus and recurrent nevus are benign entities, which align with the 'Other Benign' pathology category."
+  },
+  "AK/HAK, SCC in situ, SCC, Benign Lichenoid Keratosis||Squamous Cell Carcinoma In Situ": {
+    "match": true,
+    "reason": "The free-text diagnosis includes 'SCC in situ,' which directly matches the pathology category, and the other terms are clinically related or subtypes that can coexist with SCC in situ."
+  },
+  "Basosquamous cell carcinoma or squamitized Basal cell carcinoma||Squamous Cell Carcinoma In Situ": {
+    "match": false,
+    "reason": "Basosquamous cell carcinoma and squamitized basal cell carcinoma are distinct entities and do not clinically match squamous cell carcinoma in situ, which is a precursor lesion confined to the epidermis."
+  },
+  "Melanocytic lesions: dysplastic nevus or melanoma||Melanoma": {
+    "match": true,
+    "reason": "Melanoma is explicitly mentioned in the free-text diagnosis, and dysplastic nevus is a recognized precursor or differential diagnosis for melanoma."
+  },
+  "Dysplastic Nevus||Melanoma": {
+    "match": false,
+    "reason": "A dysplastic nevus is a benign lesion with atypical features, whereas melanoma is a malignant tumor; they are distinct entities."
+  },
+  "Dysplastic nevus||Melanoma": {
+    "match": false,
+    "reason": "A dysplastic nevus is a benign lesion with atypical features, whereas melanoma is a malignant tumor; they are distinct entities."
+  },
+  "Sebaceous hyperplasia||Basal Cell Carcinoma": {
+    "match": false,
+    "reason": "Sebaceous hyperplasia is a benign condition involving enlarged sebaceous glands, whereas basal cell carcinoma is a malignant skin cancer and they are distinct entities."
+  },
+  "Seborrheic keratosis||Squamous Cell Carcinoma In Situ": {
+    "match": false,
+    "reason": "Seborrheic keratosis is a benign lesion, whereas squamous cell carcinoma in situ is a malignant condition, so they are not clinically equivalent."
+  },
+  "severely dysplastic vs Spitz nevus||Melanoma": {
+    "match": false,
+    "reason": "Severely dysplastic nevus and Spitz nevus are not melanoma but rather benign or borderline melanocytic lesions, though they may be confused with melanoma clinically."
+  },
+  "seborrheic keratosis||Melanocytic Lesion": {
+    "match": false,
+    "reason": "Seborrheic keratosis is a benign epidermal lesion and does not fall under the category of melanocytic lesions, which are related to melanocytes."
+  },
+  "acral nevus vs dysplastic nevus vs acral lentiginous melanoma||Melanoma": {
+    "match": true,
+    "reason": "Acral lentiginous melanoma is explicitly mentioned in the free-text diagnosis, which falls under the pathology category of melanoma."
+  },
+  "prurigo nodule vs other||Dermatofibroma": {
+    "match": false,
+    "reason": "Prurigo nodules are a distinct clinical entity related to chronic pruritus, whereas dermatofibromas are benign fibrous histiocytomas and not typically associated with prurigo."
+  },
+  "nevus vs fibroepithelial polyp||Other Benign": {
+    "match": true,
+    "reason": "Both nevus and fibroepithelial polyp are benign lesions, which can reasonably fall under the 'Other Benign' pathology category."
+  },
+  "pigmented seborrheic keratosis||Melanocytic Nevus": {
+    "match": false,
+    "reason": "Pigmented seborrheic keratosis is a benign epidermal lesion and does not fall under the category of melanocytic nevus, which refers to lesions derived from melanocytes."
+  },
+  "actinic keratosis vs squamous cell carcinoma vs inflamed keratosis||Squamous Cell Carcinoma In Situ": {
+    "match": true,
+    "reason": "Squamous cell carcinoma in situ is a recognized progression from actinic keratosis and is clinically considered in the differential diagnosis alongside squamous cell carcinoma and inflamed keratosis."
+  },
+  "actinic keratosis vs inflamed seborrheic keratosis vs prurigo nodularis vs squamous cell carcinoma||Seborrheic Keratosis": {
+    "match": false,
+    "reason": "The free-text diagnosis includes multiple differential diagnoses, and while 'inflamed seborrheic keratosis' is mentioned, it is not the primary focus or definitive diagnosis."
+  },
+  "dysplastic nevus||Actinic Keratosis": {
+    "match": false,
+    "reason": "Dysplastic nevus is a type of atypical mole, whereas actinic keratosis is a precancerous lesion caused by sun damage; they are distinct entities."
+  },
+  "melanoma vs dysplastic nevus||Actinic Keratosis": {
+    "match": false,
+    "reason": "Melanoma and dysplastic nevus are distinct entities unrelated to actinic keratosis, which is a precancerous lesion caused by sun damage."
+  },
+  "Basal cell carcinoma||Squamous Cell Carcinoma In Situ": {
+    "match": false,
+    "reason": "Basal cell carcinoma and squamous cell carcinoma in situ are distinct entities with different histopathological and clinical characteristics."
+  }
+}

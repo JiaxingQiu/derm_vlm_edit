@@ -31,8 +31,11 @@ DERM_EDIT_ROOT = EDITING_ROOT.parent                              # derm_vlm_edi
 
 DATA_ROOT = DERM_EDIT_ROOT / "data"                              # symlinks into the preserved repo
 ANNOTATIONS_CSV = DATA_ROOT / "annotations_export.csv"
-IMAGE_ROOT = DATA_ROOT / "images"                                # {case_id}.jpg
+IMAGE_ROOT = DATA_ROOT / "images"                                # {id}_combined.jpg, {id}_photo.jpg, {id}_dscope.jpg
 MIDAS_DICT = DATA_ROOT / "midas_share_dictionary.json"
+# OOD saved top-3 responses, next to the other shared inputs:
+#   medgemma_predictions_reason.csv
+#   dermato_llama_predictions_reason.csv
 
 # Saved runs live under the repo, one folder per job. Edit-set JSONLs live
 # with the reliability job.

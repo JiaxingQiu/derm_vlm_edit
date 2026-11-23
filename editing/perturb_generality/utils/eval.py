@@ -154,7 +154,8 @@ def eval_image(editor, vlm, queries, *, norm_answer, max_new_tokens, seed, user,
     ds = _clone(queries)
     for ex in ds.data:
         aug_seed = stable_seed(seed, user, model_short, ex["uid"])
-        ex["image"] = perturb_image(ex["image"], aug_seed)
+        field = "key_image" if ex.get("key_image") else "image"
+        ex[field] = perturb_image(ex[field], aug_seed)
     n_ok, rows = _run_generate(editor, vlm, ds, max_new_tokens, norm_answer)
     return n_ok, rows
 

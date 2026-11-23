@@ -957,6 +957,11 @@ class ReasonEdit(nn.Module):
 
     # ==================== 5. DATASET & IO ====================
 
+    @staticmethod
+    def _key_image(ex):
+        """Image encoded for retrieval. Generation still reads ``ex['image']``."""
+        return ex.get("key_image") or ex.get("image")
+
     def apply_to_dataset(self, dataset):
         """Apply retrieved facts to dataset prompts."""
         applied = 0
@@ -965,8 +970,8 @@ class ReasonEdit(nn.Module):
         
         for ex in data:
             prompt_orig = ex.get("prompt_orig") or ex.get("prompt", "")
-            q, img = ex.get("question", ""), ex.get("image")
-            if not prompt_orig or img is None:
+            q, img = ex.get("question", ""), self._key_image(ex)
+            if not prompt_orig or ex.get("image") is None or img is None:
                 continue
             
             facts, match = self._retrieve(img, q) if q else ([], self._empty_match())
@@ -1027,9 +1032,11 @@ class ReasonEdit(nn.Module):
         
         for i, (ex, sents, uid) in enumerate(valid_exs):
             print(f"\r[ReasonEdit] edit {i+1}/{len(valid_exs)}...", end="", flush=True)
-            self._add_edit(ex.get("image"), ex.get("question", ""), 
+            key_image = self._key_image(ex)
+            image_path = key_image if isinstance(key_image, str) else ex.get("image")
+            self._add_edit(key_image, ex.get("question", ""), 
                           ex.get("answer") or ex.get("target") or (ex.get("gold") or {}).get("label") or "", sents,
-                          uid=uid, case_id=ex.get("case_id"), image_path=ex.get("image"))
+                          uid=uid, case_id=ex.get("case_id"), image_path=image_path)
             self._added_uids.add(uid)
         
         n_after = len(self.codebook)

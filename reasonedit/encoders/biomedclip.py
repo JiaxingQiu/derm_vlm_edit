@@ -18,6 +18,33 @@ from PIL import Image
 from .base import ImageEncoder
 
 
+def _vision_dim(model) -> int:
+    """Embedding width of an open_clip vision tower.
+
+    A custom CLIP tower stores ``output_dim``. BiomedCLIP's tower is a timm
+    model, whose projected width lives on the linear head instead.
+    """
+    visual = model.visual
+    if hasattr(visual, "output_dim"):
+        return int(visual.output_dim)
+    head = getattr(visual, "head", None)
+    if head is not None:
+        for module in reversed(list(head.modules())):
+            out = getattr(module, "out_features", None)
+            if out:
+                return int(out)
+    text_proj = getattr(model, "text_projection", None)
+    shape = getattr(text_proj, "shape", None)
+    if shape is not None and len(shape) >= 1:
+        return int(shape[-1])
+    out = getattr(text_proj, "out_features", None)
+    if out:
+        return int(out)
+    raise AttributeError(
+        f"{type(visual).__name__} has no recorded embedding width"
+    )
+
+
 class BiomedCLIPEncoder(ImageEncoder):
     """BiomedCLIP image encoder (vision tower only).
 
@@ -32,6 +59,7 @@ class BiomedCLIPEncoder(ImageEncoder):
         self,
         model_name: str = "microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224",
         device: Union[str, torch.device] = "cpu",
+        pool: str = "cls",
     ):
         self._model_name = model_name
         self._device = torch.device(device) if isinstance(device, str) else device
@@ -51,7 +79,7 @@ class BiomedCLIPEncoder(ImageEncoder):
         self._model = model
         self._preprocess = preprocess_val
         self._model.eval()
-        self._dim = model.visual.output_dim
+        self._dim = _vision_dim(model)
         print(f"[BiomedCLIPEncoder] Loaded ({self._dim}-d)")
 
     # ---- interface ----

@@ -24,10 +24,16 @@ def _load_dataset(dataset: str, images_dir: Optional[str], captions_file: Option
         if not images_dir or not captions_file:
             raise ValueError("Custom data needs both --images_dir and --captions_file")
         return load_pairs(captions_file, images_dir)
+    if dataset == "derm":
+        from .download_derm import DATA_DIR as DERM_DIR
+        from .download_derm import METADATA_FILE as DERM_META
+        from .download_derm import download as download_derm
+        download_derm(n=n_download)
+        return load_pairs(DERM_META, DERM_DIR)
     if dataset != "coco":
         raise ValueError(
-            f"Dataset {dataset!r} is not bundled. Pass --images_dir and --captions_file, "
-            "or use --dataset coco."
+            f"Dataset {dataset!r} is not bundled. Use coco or derm, "
+            "or pass --images_dir and --captions_file."
         )
     download(n=n_download)
     return load_pairs(METADATA_FILE, DATA_DIR)

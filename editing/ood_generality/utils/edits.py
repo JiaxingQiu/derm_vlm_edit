@@ -16,6 +16,7 @@ from pathlib import Path
 import config as C
 from data_engineering.extract_dx import extract_top1
 from data_engineering.parse_annotations import load_records
+from retrieval_images import attach
 
 _PERTURB_EDITS = (
     Path(__file__).resolve().parents[2] / "perturb_generality" / "utils" / "edits.py"
@@ -38,22 +39,26 @@ def _perturb_edits():
     return module
 
 
-def collect_user(user, model_short, rationale_mode=None, norm_answer=None, subsample=0):
+def collect_user(user, model_short, rationale_mode=None, norm_answer=None, subsample=0,
+                 retrieval_image="combined"):
     return _perturb_edits().collect_user(
         user, model_short, rationale_mode=rationale_mode,
-        norm_answer=norm_answer, subsample=subsample,
+        norm_answer=norm_answer, subsample=subsample, retrieval_image=retrieval_image,
     )
 
 
-def collect_all(users, model_short, rationale_mode=None, norm_answer=None, subsample=0):
+def collect_all(users, model_short, rationale_mode=None, norm_answer=None, subsample=0,
+                retrieval_image="combined"):
     return _perturb_edits().collect_all(
         users, model_short, rationale_mode=rationale_mode,
-        norm_answer=norm_answer, subsample=subsample,
+        norm_answer=norm_answer, subsample=subsample, retrieval_image=retrieval_image,
     )
 
 
-def collect_locality(users, model_short, subsample=0):
-    return _perturb_edits().collect_locality(users, model_short, subsample=subsample)
+def collect_locality(users, model_short, subsample=0, retrieval_image="combined"):
+    return _perturb_edits().collect_locality(
+        users, model_short, subsample=subsample, retrieval_image=retrieval_image,
+    )
 
 
 def reviewed_case_ids(users, model_short):
@@ -69,11 +74,11 @@ def reviewed_case_ids(users, model_short):
 
 
 def predictions_csv(model_short) -> Path:
-    """Saved top-3 responses live next to the image symlink target."""
-    return C.IMAGE_ROOT.resolve().parent / PRED_FILES[model_short]
+    """Saved top-3 responses. Kept in ``data/`` with the images and annotations."""
+    return C.DATA_ROOT / PRED_FILES[model_short]
 
 
-def collect_ood(users, model_short, subsample=0):
+def collect_ood(users, model_short, subsample=0, retrieval_image="combined"):
     """Combined MIDAS cases outside the reviewed pool, with saved top-1 and y16."""
     csv.field_size_limit(min(sys.maxsize, 10 ** 7))
     reviewed = reviewed_case_ids(users, model_short)
@@ -108,4 +113,4 @@ def collect_ood(users, model_short, subsample=0):
     rows.sort(key=lambda row: row["case_id"])
     if subsample:
         rows = rows[:subsample]
-    return rows
+    return attach(rows, retrieval_image)

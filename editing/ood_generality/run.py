@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""Collective OOD generality. standalone_dual and language_last, each at reject percentiles 1 and 5.
+"""Collective OOD generality. standalone_dual and language_last, each at the requested percentiles.
 
 The codebook matches perturb_generality collect. Reliability and locality are
 left there. This run only scores leftover combined MIDAS cases. Results land in
-results/ood_gen/{embed_mode}_{threshold}/collect/.
+results/ood_gen/{embed_mode}_{threshold}/collect/. photo and dscope add a suffix
+and use that sibling file as the retrieval key. ``dinov2`` keeps those folders.
+Another ``--image-encoder`` adds its short name, for example
+``standalone_dual_10_photo_panderm``. Generation stays on the combined image.
 
     python run.py
+    python run.py --retrieval-image photo --embed-mode standalone_dual --pct_threshold 10
+    python run.py --retrieval-image photo --embed-mode standalone_dual --pct_threshold 10 --image-encoder panderm
     python run.py --overwrite
     python run.py --no-resume
 """
@@ -23,6 +28,7 @@ from utils.bootstrap import bootstrap, results_dir
 bootstrap()
 
 import config as C
+from retrieval_images import require_present, results_tag
 from utils.edit import edit
 from utils.edits import collect_all, collect_ood
 from utils.eval import load_suite, load_vlm, needs_compute, render_table, run_suite
@@ -52,16 +58,22 @@ def _defaults():
     )
 
 
-def _tag(embed_mode, reject_threshold):
-    """1 and 1.0 both land in ``standalone_dual_1``."""
-    return f"{embed_mode}_{float(reject_threshold):g}"
+def _tag(embed_mode, reject_threshold, retrieval_image="combined", image_encoder="dinov2"):
+    """1 and 1.0 both land in ``standalone_dual_1``. photo, dscope, and a non-dinov2 encoder add suffixes."""
+    return results_tag(embed_mode, reject_threshold, retrieval_image, image_encoder)
 
 
-def run_collect(embed_mode, reject_threshold, overwrite=False, resume=True):
+def run_collect(embed_mode, reject_threshold, overwrite=False, resume=True,
+                retrieval_image="combined", image_encoder="dinov2"):
     opts = _defaults()
-    tag = _tag(embed_mode, reject_threshold)
+    opts["image_encoder"] = image_encoder
+    tag = _tag(embed_mode, reject_threshold, retrieval_image, image_encoder)
     out = results_dir(ROOT, "collect", tag)
-    print(f"results: {out}  mode={embed_mode}  reject={reject_threshold}", flush=True)
+    print(
+        f"results: {out}  mode={embed_mode}  reject={reject_threshold}  "
+        f"retrieval_image={retrieval_image}  image_encoder={image_encoder}",
+        flush=True,
+    )
     rows = []
     for model_short in MODELS:
         if not needs_compute(out, POOL, model_short, overwrite=overwrite, resume=resume):
@@ -73,17 +85,22 @@ def run_collect(embed_mode, reject_threshold, overwrite=False, resume=True):
             rationale_mode=opts["rationale_mode"],
             norm_answer=opts["norm_answer"],
             subsample=opts["subsample"],
+            retrieval_image=retrieval_image,
         )
         print(f"{model_short}: {len(edits)} unique edits, {len(report['conflicts'])} conflicting cases dropped")
         for row in report["conflicts"]:
             users = ", ".join(str(u).split("@")[0] for u in row["users"])
             print(f"  drop {row['case_id']}: {users} -> {', '.join(row['answers'])}")
-        ood = collect_ood(USERS, model_short, subsample=opts["subsample"])
+        ood = collect_ood(
+            USERS, model_short, subsample=opts["subsample"], retrieval_image=retrieval_image,
+        )
         n_before_text = sum(1 for row in ood if row.get("pred_before"))
         print(f"{model_short}: {len(ood)} ood cases ({n_before_text} with a saved top-1)")
         if not edits:
             print(f"skip {model_short}")
             continue
+        require_present(edits, f"{model_short} edits")
+        require_present(ood, f"{model_short} ood")
         import torch
         vlm, config = load_vlm(
             model_short, max_new_tokens=opts["max_new_tokens"], seed=opts["seed"],
@@ -108,15 +125,29 @@ def main():
     ap = argparse.ArgumentParser(description="Collective OOD generality for both embedding modes.")
     ap.add_argument("--pct_threshold", type=float, default=None,
                     help="One reject percentile, so two jobs can run in parallel. Omit to run 1 and 5.")
+    ap.add_argument("--retrieval-image", default="combined", choices=["combined", "photo", "dscope"],
+                    help="Image encoded for the codebook and the query. Generation stays combined.")
+    ap.add_argument("--embed-mode", default=None, choices=["standalone_dual", "language_last"],
+                    help="One embedding mode. Omit to run standalone_dual and language_last.")
+    ap.add_argument("--image-encoder", default="dinov2",
+                    help="Short name for get_image_encoder. dinov2 keeps the current result folders.")
     ap.add_argument("--overwrite", action="store_true")
     ap.add_argument("--no-resume", action="store_true")
     args = ap.parse_args()
     resume = not args.no_resume
     thresholds = REJECT_THRESHOLDS if args.pct_threshold is None else [args.pct_threshold]
-    for mode in EMBED_MODES:
+    modes = EMBED_MODES if args.embed_mode is None else [args.embed_mode]
+    for mode in modes:
         for pct in thresholds:
-            print(f"\n===== collect  {mode}  reject={pct} =====", flush=True)
-            run_collect(mode, pct, overwrite=args.overwrite, resume=resume)
+            print(
+                f"\n===== collect  {mode}  reject={pct}  retrieval_image={args.retrieval_image}  "
+                f"image_encoder={args.image_encoder} =====",
+                flush=True,
+            )
+            run_collect(
+                mode, pct, overwrite=args.overwrite, resume=resume,
+                retrieval_image=args.retrieval_image, image_encoder=args.image_encoder,
+            )
 
 
 if __name__ == "__main__":

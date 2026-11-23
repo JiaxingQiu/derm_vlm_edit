@@ -23,7 +23,7 @@ class DermEditDataset:
     @staticmethod
     def _to_ex(e: Dict, i: int) -> Dict:
         rationale = (e.get("rationale") or "").strip()
-        return {
+        row = {
             "uid": e["uid"],
             "idx": i,
             "image": e["image"],
@@ -37,6 +37,9 @@ class DermEditDataset:
             "case_id": e.get("case_id"),
             "login_id": e.get("login_id"),
         }
+        if e.get("key_image"):
+            row["key_image"] = e["key_image"]
+        return row
 
     def set_dataloader(self):
         """Stamp gold + prompt on each example (no DataLoader)."""
